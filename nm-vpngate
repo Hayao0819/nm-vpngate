@@ -130,7 +130,7 @@ case "${VPN_TYPE}" in
         ;;
     "L2TP")
         nmcli connection add \
-            connection.id <VPNName> con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
+            connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
             connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, ipsec-psk = <PSK>, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
         ;;
 esac
