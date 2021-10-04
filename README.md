@@ -16,10 +16,10 @@ bash nm-vpngate/nm-vpngate
 ## Related directories and files
 These are the directories used by nm-vpngate
 
-- (DIR) ~/.nm-vpngate/
+- (DIR) ~/.nm-vpngate/  
   Script saves openvpn config to the directory
-- (FILE) /tmp/${UID}-nm-vpngate
+- (FILE) /tmp/${UID}-nm-vpngate  
   Script saves the cache to the file
-- (FILE) /etc/nm-vpngate.conf ~/.nm-vpngate.conf ~/.config/nm-vpngate.conf
+- (FILE) /etc/nm-vpngate.conf ~/.nm-vpngate.conf ~/.config/nm-vpngate.conf  
   Script loads config from them
 
