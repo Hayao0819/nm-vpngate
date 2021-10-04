@@ -45,17 +45,13 @@ ask_question(){
     for (( _count=1; _count<=${#_choice_list[@]}; _count++)); do
         _choice="${_choice_list[$(( _count - 1 ))]}" _mark=" "
         { [[ ! "${_default}" = "" ]] && [[ "${_choice}" = "${_default}" ]]; } && _mark="*"
-            printf " ${_mark} %${_digit}d: ${_choice}\n" "${_count}" >&2
+        printf " ${_mark} %${_digit}d: ${_choice}\n" "${_count}" >&2
     done
     echo -n "(1 ~ ${#_choice_list[@]}) > " >&2 && read -r _input
-    if printf "%s" "${_input}" | grep -qE "^[0-9]+$"; then
-        { (( 1 <= _input)) && (( _input <= ${#_choice_list[@]} )); } || return 1 && _choice="${_choice_list[$(( _input - 1 ))]}"
-    else
-        for (( i=0; i <= ${#_choice_list[@]} - 1 ;i++ )); do
-            [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && _choice="${_choice_list["${i}"]}" && break
-        done
-    fi
-    echo "${_choice}"
+    { printf "%s" "${_input}" | grep -qE "^[0-9]+$";} && { (( 1 <= _input)) && (( _input <= ${#_choice_list[@]} )); } || return 1 && echo "${_choice_list[$(( _input - 1 ))]}" && return 0
+    for (( i=0; i <= ${#_choice_list[@]} - 1 ;i++ )); do
+        [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && echo "${_choice_list["${i}"]}" && return 0
+    done
 }
 
 #-- Prepare environment --#
