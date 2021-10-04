@@ -11,7 +11,7 @@
 set -Eeu
 CSV_SERVERLIST=()
 
-#-- Functions --#
+#-- Message functions --#
 _log(){   echo "[ LOG ]: ${*}" >&2; }
 _info(){  echo "[ INFO]: ${*}" >&2; }
 _warn(){  echo "[ WARN]: ${*}" >&2; }
@@ -23,6 +23,8 @@ for _cfg in "${script_path}/nm-vpngate.conf" "/etc/nm-vpngate.conf" "${HOME}/.nm
     [[ ! -f "${_cfg}" ]] && continue
     source "${_cfg}" && _info "Loaded ${_cfg}" 
 done
+
+#-- Funcions -#
 
 # 質問を行う関数
 # Returns only the selected result to standard output
@@ -53,6 +55,18 @@ ask_question(){
     for (( i=0; i <= ${#_choice_list[@]} - 1 ;i++ )); do
         [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && echo "${_choice_list["${i}"]}" && return 0
     done
+}
+
+_script_usage(){
+    echo "usage ${0} [options]"
+    echo
+    echo "A script that makes it easy to connect Network Manager to a VPN Gate"
+    echo
+    echo " General options:"
+    echo "    -c | --cli                 Set the mode to CLI"
+    echo "    -g | --gtk                 Set thr mode to GTK (GUI)"
+    echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
+    echo "    -h | --help                Show this help and exit."
 }
 
 #-- Prepare environment --#
@@ -162,6 +176,28 @@ _setup_vpn(){
 _connect_vpn(){
     nmcli con up id "${PROFILE_NAME}" || _error "Network Manager has returned non-zero exit code."
 }
+
+#-- Parse argument --#
+OPTS=("c" "g" "h" "t:") OPTL=("cli" "gtk" "type:" "help")
+GETOPT=(-o "$(printf "%s," "${OPTS[@]}")" -l "$(printf "%s," "${OPTL[@]}")" -- "${@}")
+getopt -Q "${GETOPT[@]}" || exit 1 # 引数エラー判定
+readarray -t OPT < <(getopt "${GETOPT[@]}") # 配列に代入
+eval set -- "${OPT[@]}"
+unset OPT OPTS OPTL DEFAULT_ARGUMENT GETOPT
+
+while true; do
+    case "${1}" in
+        -c | --cli     ) MODE="CLI"      ; shift 1 ;;
+        -g | --gtk     ) MODE="GUI"      ; shift 1 ;;
+        -t | --type    ) VPN_TYPE="${2}" ; shift 2 ;;
+        --             ) shift 1         ; break   ;;
+        *)
+            _error "Argument exception error '${1}'"
+            _error "Please report this error to the developer."
+            exit 1
+            ;;
+    esac
+done
 
 #-- Run --#
 _prepare_env
