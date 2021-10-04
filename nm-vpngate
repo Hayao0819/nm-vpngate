@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
-#shellcheck disable=SC2154
+#
+# Yamada Hayao
+# Twitter: @Hayao0819
+# Email  : hayao@fascode.net
+#
+# (c) 2019-2021 Fascode Network.
+#
+# A script that makes it easy to connect Network Manager to a VPN Gate
+# 
 set -Eeu
-
-#-- Config --#
-GUI_TITLE="VPNGate Client"
-VPNGATE_CSV="http://www.vpngate.net/api/iphone/"
-CACHE_PATH="/tmp/${UID}-nm-vpngate"
-CONFIG_DIR="${HOME}/.nm-vpngate"
-CSV_VARS="HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64"
-#MODE="GUI"
-MODE="CLI"
-PROFILE_NAME_FORMAT="HostName-IP-CountryShort"
-VPN_TYPE="OPENVPN" #VPN_TYPE="L2TP"
-USERNAME="vpn"
-PASSWORD="vpn"
-
 
 #-- Functions --#
 _log(){   echo "[ LOG ]: ${*}" >&2; }
+_info(){  echo "[ INFO]: ${*}" >&2; }
 _warn(){  echo "[ WARN]: ${*}" >&2; }
 _error(){ echo "[ERRPR]: ${*}" >&2; }
+
+#-- Config --#
+script_path="$( cd -P "$( dirname "$(readlink -f "${0}")" )" && pwd )"
+for _cfg in "${script_path}/nm-vpngate.conf" "/etc/nm-vpngate.conf" "${HOME}/.nm-vpngate.conf" "$(xdg-user-dir)/.config/nm-vpngate.conf"; do
+    [[ ! -f "${_cfg}" ]] && continue
+    source "${_cfg}" || _info "Loaded ${_cfg}" 
+done
 
 # 質問を行う関数
 # Returns only the selected result to standard output
@@ -59,7 +61,6 @@ ask_question(){
 #-- Prepare environment --#
 mkdir -p "${CONFIG_DIR}"
 
-
 #-- Get server list from API or cache--#
 if [[ -f "${CACHE_PATH}" ]]; then
     _log "Use cached server list in ${CACHE_PATH}"
@@ -85,7 +86,7 @@ if [[ "${MODE}" = "GUI" ]]; then
         readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
     done
     _args+=("--hide-column" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
-    SelectedVPNName="$(zenity --list --title="${GUI_TITLE}" --text="Please select server that you want to connect" "${_args[@]}")"
+    SelectedVPNName="$(zenity --list --title="${APP_NAME}" --text="Please select server that you want to connect" "${_args[@]}")"
 elif [[ "${MODE}" = "CLI" ]]; then
     for _server in "${CSV_SERVERLIST[@]}"; do
         #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
