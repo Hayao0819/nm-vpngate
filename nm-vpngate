@@ -9,6 +9,7 @@
 # A script that makes it easy to connect Network Manager to a VPN Gate
 # 
 set -Eeu
+CSV_SERVERLIST=()
 
 #-- Functions --#
 _log(){   echo "[ LOG ]: ${*}" >&2; }
@@ -55,25 +56,39 @@ ask_question(){
 }
 
 #-- Prepare environment --#
-mkdir -p "${CONFIG_DIR}"
+_prepare_env(){
+    mkdir -p "${CONFIG_DIR}"
+}
 
 #-- Get server list from API or cache--#
-if [[ -f "${CACHE_PATH}" ]]; then
-    _log "Use cached server list in ${CACHE_PATH}"
-    readarray -t CSV_SERVERLIST < <(grep -v "^\*" < "${CACHE_PATH}" | grep -v "^#")
-else
-    _log "Getting server list from ${VPNGATE_CSV} ..."
-    readarray -t CSV_SERVERLIST < <(curl -sL "${VPNGATE_CSV}" | grep -v "^\*" | grep -v "^#" | tee "${CACHE_PATH}")
-fi
+_get_server_list(){
+    if [[ -f "${CACHE_PATH}" ]]; then
+        _log "Use cached server list in ${CACHE_PATH}"
+        readarray -t CSV_SERVERLIST < <(grep -v "^\*" < "${CACHE_PATH}" | grep -v "^#")
+    else
+        _log "Getting server list from ${VPNGATE_CSV} ..."
+        readarray -t CSV_SERVERLIST < <(curl -sL "${VPNGATE_CSV}" | grep -v "^\*" | grep -v "^#" | tee "${CACHE_PATH}")
+    fi
+}
 
 #-- Parse server list --#
-_log "Paring CSV ..."
-while read -r _cnt; do
-    readarray -t "$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List" < <(printf "%s\n" "${CSV_SERVERLIST[@]}" | cut -d "," -f "${_cnt}")
-done < <(seq "1" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+_parse_server_list(){
+    local _cnt
+    _log "Paring CSV ..."
+    while read -r _cnt; do
+        readarray -t "$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List" < <(printf "%s\n" "${CSV_SERVERLIST[@]}" | cut -d "," -f "${_cnt}")
+    done < <(seq "1" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+}
 
 #-- Select server --#
-if [[ "${MODE}" = "GUI" ]]; then
+_select_server_cli(){
+    for _server in "${CSV_SERVERLIST[@]}"; do
+        #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
+        _args+=("$(tr "," " " <<< "${_server}" | awk '{printf $1" "$2" "$7}')")
+    done
+    SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d " " -f 1)"
+}
+_select_server_gtk(){
     _log "Configuring graphical user interface ..."
     while read -r _var; do
         _args+=(--column="${_var}")
@@ -83,57 +98,89 @@ if [[ "${MODE}" = "GUI" ]]; then
     done
     _args+=("--hide-column" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
     SelectedVPNName="$(zenity --list --title="${APP_NAME}" --text="Please select server that you want to connect" "${_args[@]}")"
-elif [[ "${MODE}" = "CLI" ]]; then
-    for _server in "${CSV_SERVERLIST[@]}"; do
-        #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
-        _args+=("$(tr "," " " <<< "${_server}" | awk '{printf $1" "$2" "$7}')")
-    done
-    SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d " " -f 1)"
-fi
+}
 
 #-- Get server info from serner name --#
-_log "Getting server information ..."
-if [[ -n "${SelectedVPNName-""}" ]]; then
-    SelectedIndex=$(awk "BEGIN {FS=\",\"} {
-        if (\$1 == \"${SelectedVPNName}\" ){
-            print NR - 1
-        }
-    }" < <(printf "%s\n" "${CSV_SERVERLIST[@]}"))
-else
-    _error "Failed to get server name"
-    exit 1
-fi
-_log "Server name:${HostNameList[${SelectedIndex}]}, IP: ${IPList[${SelectedIndex}]}, Country: ${CountryShortList[${SelectedIndex}]}"
+_get_server_from_name(){
+    _log "Getting server information ..."
+    if [[ -n "${SelectedVPNName-""}" ]]; then
+        SelectedIndex=$(awk "BEGIN {FS=\",\"} {
+            if (\$1 == \"${SelectedVPNName}\" ){
+                print NR - 1
+            }
+        }" < <(printf "%s\n" "${CSV_SERVERLIST[@]}"))
+    else
+        _error "Failed to get server name"
+        exit 1
+    fi
+    _log "Server name:${HostNameList[${SelectedIndex}]}, IP: ${IPList[${SelectedIndex}]}, Country: ${CountryShortList[${SelectedIndex}]}"
+}
 
 #-- Parse format --#
-PROFILE_NAME="${PROFILE_NAME_FORMAT}"
-_log "Parsing name format"
-while read -r _cnt; do
-    PROFILE_NAME="${PROFILE_NAME//$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)/$(eval "echo \${$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List[${SelectedIndex}]}")}"
-done < <(seq "1" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+_parse_profile_name(){
+    PROFILE_NAME="${PROFILE_NAME_FORMAT}"
+    _log "Parsing name format"
+    while read -r _cnt; do
+        PROFILE_NAME="${PROFILE_NAME//$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)/$(eval "echo \${$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List[${SelectedIndex}]}")}"
+    done < <(seq "1" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+}
 
 #-- Set up connection --#
-case "${VPN_TYPE}" in
-    "OPENVPN")
-        #-- Save ovpn file --#
-        _log "Save OVPN file to ${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
-        echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" |  base64 -di > "${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+_setup_vpn_openvpn(){
+    #-- Save ovpn file --#
+    _log "Save OVPN file to ${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" |  base64 -di > "${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
 
-        #-- Import OVPN file --#
-        if nmcli con | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
-            _warn "${PROFILE_NAME} has been added to the Network Manager"
-            _warn "Skip to add it and continue to connent"
-        else
-            _log "Import ${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
-            nmcli connection import type openvpn file "${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
-        fi
+    #-- Import OVPN file --#
+    _log "Import ${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+    nmcli connection import type openvpn file "${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+}
+
+_setup_vpn_l2tp(){
+    nmcli connection add \
+        connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
+        connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, ipsec-psk = <PSK>, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
+}
+
+_setup_vpn(){
+    if nmcli con | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
+        _warn "${PROFILE_NAME} has been added to the Network Manager"
+        _warn "Skip to add it and continue to connent"
+        return 0
+    fi
+    case "${VPN_TYPE}" in
+        "OPENVPN")
+            _setup_vpn_openvpn
+            ;;
+        "L2TP")
+            _setup_vpn_l2tp
+            ;;
+    esac
+}
+
+#-- Connect to VPN --#
+_connect_vpn(){
+    nmcli con up id "${PROFILE_NAME}" || _error "Network Manager has returned non-zero exit code."
+}
+
+#-- Run --#
+_prepare_env
+_get_server_list
+_parse_server_list
+
+case "${MODE}" in
+    "GUI")
+        _select_server_gtk
         ;;
-    "L2TP")
-        nmcli connection add \
-            connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
-            connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, ipsec-psk = <PSK>, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
+    "CLI")
+        _select_server_cli
+        ;;
+    *)
+        _error "${MODE} is not correct"
         ;;
 esac
 
-#-- Connect to VPN --#
-nmcli con up id "${PROFILE_NAME}" || _error "Network Manager has returned non-zero exit code."
+_get_server_from_name
+_parse_profile_name
+_setup_vpn
+_connect_vpn
