@@ -136,4 +136,4 @@ case "${VPN_TYPE}" in
 esac
 
 #-- Connect to VPN --#
-nmcli con up id "${PROFILE_NAME}"
+nmcli con up id "${PROFILE_NAME}" || _error "Network Manager has returned non-zero exit code."
