@@ -20,7 +20,7 @@ _error(){ echo "[ERRPR]: ${*}" >&2; }
 script_path="$( cd -P "$( dirname "$(readlink -f "${0}")" )" && pwd )"
 for _cfg in "${script_path}/nm-vpngate.conf" "/etc/nm-vpngate.conf" "${HOME}/.nm-vpngate.conf" "$(xdg-user-dir)/.config/nm-vpngate.conf"; do
     [[ ! -f "${_cfg}" ]] && continue
-    source "${_cfg}" || _info "Loaded ${_cfg}" 
+    source "${_cfg}" && _info "Loaded ${_cfg}" 
 done
 
 # 質問を行う関数
