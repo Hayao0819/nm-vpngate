@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+#shellcheck disable=SC2154
+set -Eeu
+
+#-- Config --#
+GUI_TITLE="VPNGate Client"
+VPNGATE_CSV="http://www.vpngate.net/api/iphone/"
+CACHE_PATH="/tmp/${UID}-nm-vpngate"
+CONFIG_DIR="${HOME}/.nm-vpngate"
+CSV_VARS="HostName,IP,Score,Ping,Speed,CountryLong,CountryShort,NumVpnSessions,Uptime,TotalUsers,TotalTraffic,LogType,Operator,Message,OpenVPN_ConfigData_Base64"
+#MODE="GUI"
+MODE="CLI"
+PROFILE_NAME_FORMAT="HostName-IP-CountryShort"
+VPN_TYPE="OPENVPN" #VPN_TYPE="L2TP"
+USERNAME="vpn"
+PASSWORD="vpn"
+
+
+#-- Functions --#
+_log(){   echo "[ LOG ]: ${*}" >&2; }
+_warn(){  echo "[ WARN]: ${*}" >&2; }
+_error(){ echo "[ERRPR]: ${*}" >&2; }
+
+# 質問を行う関数
+# Returns only the selected result to standard output
+# ask_question -d <デフォルト値> -p <質問文> <選択肢1> <選択肢2> ...
+ask_question(){
+    local arg OPTARG OPTIND _default="" _choice_list _count _choice _question _mark
+    while getopts "d:p:" arg; do
+        case "${arg}" in
+            d) _default="${OPTARG}" ;;
+            p) _question="${OPTARG}" ;;
+            *) exit 1 ;;
+        esac
+    done
+    shift "$((OPTIND - 1))" ; _choice_list=("${@}") _digit="${##}"
+
+    (( ${#_choice_list[@]} < 0 )) && _error "An exception error has occurred." && exit 1
+    (( ${#_choice_list[@]} <= 1 )) && echo "${_choice_list[*]}" && return 0
+
+    [[ -v _question ]] && [[ ! "${_question}" = "" ]] && echo -e "${_question}" >&2
+
+    for (( _count=1; _count<=${#_choice_list[@]}; _count++)); do
+        _choice="${_choice_list[$(( _count - 1 ))]}" _mark=" "
+        { [[ ! "${_default}" = "" ]] && [[ "${_choice}" = "${_default}" ]]; } && _mark="*"
+            printf " ${_mark} %${_digit}d: ${_choice}\n" "${_count}" >&2
+    done
+    echo -n "(1 ~ ${#_choice_list[@]}) > " >&2 && read -r _input
+    if printf "%s" "${_input}" | grep -qE "^[0-9]+$"; then
+        { (( 1 <= _input)) && (( _input <= ${#_choice_list[@]} )); } || return 1 && _choice="${_choice_list[$(( _input - 1 ))]}"
+    else
+        for (( i=0; i <= ${#_choice_list[@]} - 1 ;i++ )); do
+            [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && _choice="${_choice_list["${i}"]}" && break
+        done
+    fi
+    echo "${_choice}"
+}
+
+#-- Prepare environment --#
+mkdir -p "${CONFIG_DIR}"
+
+
+#-- Get server list from API or cache--#
+if [[ -f "${CACHE_PATH}" ]]; then
+    _log "Use cached server list in ${CACHE_PATH}"
+    readarray -t CSV_SERVERLIST < <(grep -v "^\*" < "${CACHE_PATH}" | grep -v "^#")
+else
+    _log "Getting server list from ${VPNGATE_CSV} ..."
+    readarray -t CSV_SERVERLIST < <(curl -sL "${VPNGATE_CSV}" | grep -v "^\*" | grep -v "^#" | tee "${CACHE_PATH}")
+fi
+
+#-- Parse server list --#
+_log "Paring CSV ..."
+while read -r _cnt; do
+    readarray -t "$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List" < <(printf "%s\n" "${CSV_SERVERLIST[@]}" | cut -d "," -f "${_cnt}")
+done < <(seq "1" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+
+#-- Select server --#
+if [[ "${MODE}" = "GUI" ]]; then
+    _log "Configuring graphical user interface ..."
+    while read -r _var; do
+        _args+=(--column="${_var}")
+    done < <(tr "," "\n" <<< "${CSV_VARS}")
+    for _server in "${CSV_SERVERLIST[@]}"; do
+        readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
+    done
+    _args+=("--hide-column" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+    SelectedVPNName="$(zenity --list --title="${GUI_TITLE}" --text="Please select server that you want to connect" "${_args[@]}")"
+elif [[ "${MODE}" = "CLI" ]]; then
+    for _server in "${CSV_SERVERLIST[@]}"; do
+        #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
+        _args+=("$(tr "," " " <<< "${_server}" | awk '{printf $1" "$2" "$7}')")
+    done
+    SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d " " -f 1)"
+fi
+
+#-- Get server info from serner name --#
+_log "Getting server information ..."
+if [[ -n "${SelectedVPNName-""}" ]]; then
+    SelectedIndex=$(awk "BEGIN {FS=\",\"} {
+        if (\$1 == \"${SelectedVPNName}\" ){
+            print NR - 1
+        }
+    }" < <(printf "%s\n" "${CSV_SERVERLIST[@]}"))
+else
+    _error "Failed to get server name"
+    exit 1
+fi
+_log "Server name:${HostNameList[${SelectedIndex}]}, IP: ${IPList[${SelectedIndex}]}, Country: ${CountryShortList[${SelectedIndex}]}"
+
+#-- Parse format --#
+PROFILE_NAME="${PROFILE_NAME_FORMAT}"
+_log "Parsing name format"
+while read -r _cnt; do
+    PROFILE_NAME="${PROFILE_NAME//$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)/$(eval "echo \${$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List[${SelectedIndex}]}")}"
+done < <(seq "1" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+
+#-- Set up connection --#
+case "${VPN_TYPE}" in
+    "OPENVPN")
+        #-- Save ovpn file --#
+        _log "Save OVPN file to ${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+        echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" |  base64 -di > "${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+
+        #-- Import OVPN file --#
+        if nmcli con | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
+            _warn "${PROFILE_NAME} has been added to the Network Manager"
+            _warn "Skip to add it and continue to connent"
+        else
+            _log "Import ${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+            nmcli connection import type openvpn file "${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+        fi
+        ;;
+    "L2TP")
+        nmcli connection add \
+            connection.id <VPNName> con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
+            connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, ipsec-psk = <PSK>, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
+        ;;
+esac
+
+#-- Connect to VPN --#
+nmcli con up id "${PROFILE_NAME}"
