@@ -85,6 +85,21 @@ _get_server_list(){
     fi
 }
 
+#-- Filter server list --#
+_filter_server_list(){
+    [[ -z "${TargetCountryShort-""}" ]] && return 0
+    local _Backup_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}") _cnt _clm _var="CountryShort" _server
+    _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${_var}\"){ print NR }}")"
+    CSV_SERVERLIST=()
+    while read -r _cnt; do
+        readarray -t -O "${#CSV_SERVERLIST[@]}" CSV_SERVERLIST < <(awk "BEGIN {FS=\",\"} {
+            if (\$${_clm} == \"${_cnt}\" ){
+                print \$0
+            }
+        }" < <(printf "%s\n" "${_Backup_CSV_SERVERLIST[@]}"))
+    done < <(tr "," "\n" < <(eval "echo \${Target${_var}}"))
+}
+
 #-- Parse server list --#
 _parse_server_list(){
     local _cnt
@@ -202,6 +217,7 @@ done
 #-- Run --#
 _prepare_env
 _get_server_list
+_filter_server_list
 _parse_server_list
 
 case "${MODE}" in
