@@ -13,16 +13,25 @@ CSV_SERVERLIST=()
 
 #-- Message functions --#
 _log(){   echo "[ LOG ]: ${*}" >&2; }
-_info(){  echo "[ INFO]: ${*}" >&2; }
+_info(){ 
+    [[ "${MODE}" = "CLI" ]] && echo "[ INFO]: ${*}" >&2 && return 0
+    zenity --info --text "${*}" --title="${APP_NAME}" --timeout 1
+}
 _warn(){  echo "[ WARN]: ${*}" >&2; }
-_error(){ echo "[ERRPR]: ${*}" >&2; }
+_error(){ 
+    [[ "${MODE}" = "CLI" ]] && echo "[ERROR]: ${*}" >&2 && return 0
+    zenity --error --text "${*}" --title="${APP_NAME}" --timeout 1
+}
 
 #-- Config --#
 script_path="$( cd -P "$( dirname "$(readlink -f "${0}")" )" && pwd )"
 for _cfg in "${script_path}/nm-vpngate.conf" "/etc/nm-vpngate.conf" "${HOME}/.nm-vpngate.conf" "$(xdg-user-dir)/.config/nm-vpngate.conf"; do
     [[ ! -f "${_cfg}" ]] && continue
-    source "${_cfg}" && _info "Loaded ${_cfg}" 
+    source "${_cfg}" && _log "Loaded ${_cfg}" 
 done
+
+#-- Check terminal or GUI --#
+#test -t 0 || MODE="GUI" && MODE="CLI"
 
 #-- Funcions -#
 
@@ -76,6 +85,7 @@ _prepare_env(){
 
 #-- Get server list from API or cache--#
 _get_server_list(){
+    _info "Getting and parsing the server list is in progress"
     if [[ -f "${CACHE_PATH}" ]]; then
         _log "Use cached server list in ${CACHE_PATH}"
         readarray -t CSV_SERVERLIST < <(grep -v "^\*" < "${CACHE_PATH}" | grep -v "^#")
@@ -212,6 +222,7 @@ _setup_vpn(){
 #-- Connect to VPN --#
 _connect_vpn(){
     nmcli con up id "${PROFILE_NAME}" || _error "Network Manager has returned non-zero exit code."
+    _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})"
 }
 
 #-- Parse argument --#
