@@ -103,7 +103,7 @@ _filter_server_list(){
     _log "Configured filters: ${!Target*}"
     while read -r _var; do
         _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${_var//Target/}\"){ print NR }}")"
-        if [[ -z "$(eval "echo \${${_var}}")" ]]; then 
+        if  [[ -z "${_var}" ]] || [[ -z "$(eval "echo \${${_var}}")" ]]; then 
             _empty=true
             continue
         else
