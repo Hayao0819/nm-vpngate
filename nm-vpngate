@@ -163,6 +163,10 @@ _select_server_gtk(){
     _args+=("--hide-column" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
     SelectedVPNName="$(zenity --list --title="${APP_NAME}" --text="Please select server that you want to connect" "${_args[@]}")"
 }
+_select_server_auto(){
+    local _maxscore="$(printf "%s\n" "${ScoreList[@]}" | sort -nr | head -n 1)"
+
+}
 
 #-- Get server info from serner name --#
 _get_server_from_name(){
@@ -261,17 +265,21 @@ _get_server_list
 _filter_server_list
 _parse_server_list
 
-case "${MODE}" in
-    "GUI")
-        _select_server_gtk
-        ;;
-    "CLI")
-        _select_server_cli
-        ;;
-    *)
-        _error "${MODE} is not correct"
-        ;;
-esac
+if [[ "${AUTO_SETUP}" = true ]]; then
+    _select_server_auto
+else
+    case "${MODE}" in
+        "GUI")
+            _select_server_gtk
+            ;;
+        "CLI")
+            _select_server_cli
+            ;;
+        *)
+            _error "${MODE} is not correct"
+            ;;
+    esac
+fi
 
 _get_server_from_name
 _parse_profile_name
