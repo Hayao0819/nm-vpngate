@@ -87,17 +87,39 @@ _get_server_list(){
 
 #-- Filter server list --#
 _filter_server_list(){
-    [[ -z "${TargetCountryShort-""}" ]] && return 0
-    local _Backup_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}") _cnt _clm _var="CountryShort" _server
-    _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${_var}\"){ print NR }}")"
+    # フィルターを処理
+    local _Backup_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}") _cnt _clm _var _empty=false
     CSV_SERVERLIST=()
-    while read -r _cnt; do
-        readarray -t -O "${#CSV_SERVERLIST[@]}" CSV_SERVERLIST < <(awk "BEGIN {FS=\",\"} {
-            if (\$${_clm} == \"${_cnt}\" ){
-                print \$0
-            }
-        }" < <(printf "%s\n" "${_Backup_CSV_SERVERLIST[@]}"))
-    done < <(tr "," "\n" < <(eval "echo \${Target${_var}}"))
+    _log "Configured filters: ${!Target*}"
+    while read -r _var; do
+        _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${_var//Target/}\"){ print NR }}")"
+        if [[ -z "$(eval "echo \${${_var}}")" ]]; then 
+            _empty=true
+            continue
+        else
+            _empty=false
+        fi
+        while read -r _cnt; do
+            readarray -t -O "${#CSV_SERVERLIST[@]}" CSV_SERVERLIST < <(awk "BEGIN {FS=\",\"} {
+                if (\$${_clm} == \"${_cnt}\" || \$${_clm} ~ /${_cnt}/ ){
+                    print \$0
+                }
+            }" < <(printf "%s\n" "${_Backup_CSV_SERVERLIST[@]}"))
+        done < <(tr "," "\n" < <(eval "echo \${${_var}}"))
+    done < <(tr " " "\n" <<< "${!Target*}")
+
+    # フィルター設定がすべて空の場合はすべてのサーバを対象にする
+    [[ "${_empty}" = true ]] && CSV_SERVERLIST=("${_Backup_CSV_SERVERLIST[@]}")
+
+    # 重複しているサーバを削除
+    readarray -t CSV_SERVERLIST < <(printf "%s\n" "${CSV_SERVERLIST[@]}" | awk '!a[$0]++{print}')
+
+    # サーバリストが空の場合は終了する
+    if (( "${#CSV_SERVERLIST[@]}" == 0 )) || [[ -z "${CSV_SERVERLIST[*]}" ]]; then
+        _error "No server found. Please check Target* configs."
+        exit 1
+    fi
+    _log "${#CSV_SERVERLIST[@]} servers found."
 }
 
 #-- Parse server list --#
