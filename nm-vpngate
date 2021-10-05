@@ -201,7 +201,7 @@ _setup_vpn_openvpn(){
 _setup_vpn_l2tp(){
     nmcli connection add \
         connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
-        connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, ipsec-psk = <PSK>, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
+        connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
 }
 
 _setup_vpn(){
@@ -222,8 +222,11 @@ _setup_vpn(){
 
 #-- Connect to VPN --#
 _connect_vpn(){
-    nmcli con up id "${PROFILE_NAME}" || _error "Network Manager has returned non-zero exit code."
-    _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})"
+    local _exit=0
+    nmcli con up id "${PROFILE_NAME}" || _exit="${?}"
+    (( _exit == 0)) && _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})" && exit 0
+    _error "Network Manager has returned non-zero exit code."
+    exit "${_exit}"
 }
 
 #-- Parse argument --#
