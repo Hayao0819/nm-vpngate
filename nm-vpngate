@@ -13,14 +13,14 @@ CSV_SERVERLIST=()
 
 #-- Message functions --#
 _log(){   echo "[ LOG ]: ${*}" >&2; }
-_info(){ 
-    [[ "${MODE}" = "CLI" ]] && echo "[ INFO]: ${*}" >&2 && return 0
-    zenity --info --text "${*}" --title="${APP_NAME}" --timeout 1 || true
+_msg(){
+    [[ "${MODE}" = "CLI" ]] && echo "[${1}]: ${2}" >&2 && return 0
+    zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
 }
+_info(){  _msg " INFO" "${*}"; }
 _warn(){  echo "[ WARN]: ${*}" >&2; }
 _error(){ 
-    [[ "${MODE}" = "CLI" ]] && echo "[ERROR]: ${*}" >&2 && return 0
-    zenity --error --text "${*}" --title="${APP_NAME}" --timeout 1 || true
+    _msg "ERROR" "${*}"
 }
 
 #-- Config --#
