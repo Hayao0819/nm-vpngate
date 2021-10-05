@@ -72,11 +72,13 @@ _script_usage(){
     echo "A script that makes it easy to connect Network Manager to a VPN Gate"
     echo
     echo " General options:"
+    #echo "    -a | --auto                Automatically connect to the server with the highest score"
     echo "    -c | --cli                 Set the mode to CLI"
     echo "    -g | --gtk                 Set thr mode to GTK (GUI)"
     echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
     echo "    -h | --help                Show this help and exit."
     echo "         --nocache             Do not use cached server list"
+    echo "         --country             Set the country filter"
 }
 
 #-- Prepare environment --#
@@ -230,7 +232,7 @@ _connect_vpn(){
 }
 
 #-- Parse argument --#
-OPTS=("c" "g" "h" "t:") OPTL=("cli" "gtk" "type:" "help" "nocache")
+OPTS=("c" "g" "h" "t:") OPTL=("cli" "gtk" "type:" "help" "nocache" "country:")
 GETOPT=(-o "$(printf "%s," "${OPTS[@]}")" -l "$(printf "%s," "${OPTL[@]}")" -- "${@}")
 getopt -Q "${GETOPT[@]}" || exit 1 # 引数エラー判定
 readarray -t OPT < <(getopt "${GETOPT[@]}") # 配列に代入
@@ -239,11 +241,12 @@ unset OPT OPTS OPTL DEFAULT_ARGUMENT GETOPT
 
 while true; do
     case "${1}" in
-        -c | --cli     ) MODE="CLI"      ; shift 1 ;;
-        -g | --gtk     ) MODE="GUI"      ; shift 1 ;;
-        -t | --type    ) VPN_TYPE="${2}" ; shift 2 ;;
-             --nocache ) USE_CACHE=false ; shift 1 ;;
-        --             ) shift 1         ; break   ;;
+        -c | --cli     ) MODE="CLI"                ; shift 1 ;;
+        -g | --gtk     ) MODE="GUI"                ; shift 1 ;;
+        -t | --type    ) VPN_TYPE="${2}"           ; shift 2 ;;
+             --country ) TargetCountryShort="${2}" ; shift 2 ;;
+             --nocache ) USE_CACHE=false           ; shift 1 ;;
+        --             ) shift 1                   ; break   ;;
         *)
             _error "Argument exception error '${1}'"
             _error "Please report this error to the developer."
