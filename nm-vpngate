@@ -15,12 +15,12 @@ CSV_SERVERLIST=()
 _log(){   echo "[ LOG ]: ${*}" >&2; }
 _info(){ 
     [[ "${MODE}" = "CLI" ]] && echo "[ INFO]: ${*}" >&2 && return 0
-    zenity --info --text "${*}" --title="${APP_NAME}" --timeout 1
+    zenity --info --text "${*}" --title="${APP_NAME}" --timeout 1 || true
 }
 _warn(){  echo "[ WARN]: ${*}" >&2; }
 _error(){ 
     [[ "${MODE}" = "CLI" ]] && echo "[ERROR]: ${*}" >&2 && return 0
-    zenity --error --text "${*}" --title="${APP_NAME}" --timeout 1
+    zenity --error --text "${*}" --title="${APP_NAME}" --timeout 1 || true
 }
 
 #-- Config --#
