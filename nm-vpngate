@@ -98,9 +98,9 @@ _parse_server_list(){
 _select_server_cli(){
     for _server in "${CSV_SERVERLIST[@]}"; do
         #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
-        _args+=("$(tr "," " " <<< "${_server}" | awk '{printf $1" "$2" "$7}')")
+        _args+=("$(cut -d "," -f 1,2,7 <<< "${_server}")")
     done
-    SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d " " -f 1)"
+    SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)"
 }
 _select_server_gtk(){
     _log "Configuring graphical user interface ..."
