@@ -194,7 +194,10 @@ _select_server_gtk(){
         readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
     done
     _args+=("--hide-column" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
-    SelectedVPNName="$(zenity --list --title="${APP_NAME}" --text="Please select server that you want to connect" "${_args[@]}")"
+    if ! SelectedVPNName="$(zenity --list --title="${APP_NAME}" --text="Please select server that you want to connect" "${_args[@]}")"; then
+        _log "zenity has terminated abnormally."
+        exit 1
+    fi
 }
 _select_server_auto(){
     _info "Auto mode has been selected.Connect to the server with the highest score."
