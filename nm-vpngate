@@ -129,7 +129,7 @@ _get_server_list(){
 # Example: _filter_server_list TargetIP
 _filter_server_list(){
     # フィルターを処理
-    local _Backup_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}") _cnt _clm _var="${1-""}" _empty=false
+    local _Backup_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}") _exp _clm _var="${1-""}" _empty=false
     CSV_SERVERLIST=()
     
     _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${_var//Target/}\"){ print NR }}")"
@@ -137,13 +137,12 @@ _filter_server_list(){
         _empty=true
     else
         _log "Configured filters: ${_var}"
-        while read -r _cnt; do
-            readarray -t -O "${#CSV_SERVERLIST[@]}" CSV_SERVERLIST < <(awk "BEGIN {FS=\",\"} {
-                if (\$${_clm} == \"${_cnt}\" || \$${_clm} ~ /${_cnt}/ ){
-                    print \$0
-                }
-            }" < <(printf "%s\n" "${_Backup_CSV_SERVERLIST[@]}"))
-        done < <(tr "," "\n" < <(eval "echo \${${_var}}"))
+        _exp="$(eval "echo \${${_var}}")"
+        readarray -t -O "${#CSV_SERVERLIST[@]}" CSV_SERVERLIST < <(awk "BEGIN {FS=\",\"} {
+            if (\$${_clm} == \"${_exp}\" || \$${_clm} ~ /${_exp}/ ){
+                print \$0
+            }
+        }" < <(printf "%s\n" "${_Backup_CSV_SERVERLIST[@]}"))
     fi
 
     # フィルター設定がすべて空の場合はすべてのサーバを対象にする
