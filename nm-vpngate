@@ -13,6 +13,11 @@ set -Eeu
 # CSV obtained from API will be assigned to this array line by line
 CSV_SERVERLIST=()
 
+# Whether to update the cache
+# Do not define this value in the config file (it will constantly update the cache and make no sense)
+# This variable changes to true only when the -u option is specified
+UPDATE_CACHE=false
+
 # About array in this code
 # _parse_server_list parses the CSV and creates an array with each value assigned.
 # CSV_SERVERLIST contains raw CSV line by line.
@@ -87,6 +92,7 @@ _script_usage(){
     echo "    -c | --cli                 Set the mode to CLI"
     echo "    -g | --gtk                 Set thr mode to GTK (GUI)"
     echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
+    echo "    -u | --update              Update the cache of server list"
     echo "    -h | --help                Show this help and exit."
     echo "         --nocache             Do not use cached server list"
     echo "         --country             Set the country filter"
@@ -100,6 +106,11 @@ _prepare_env(){
 #-- Get server list from API or cache--#
 _get_server_list(){
     _info "Getting and parsing the server list is in progress"
+    if [[ "${UPDATE_CACHE}" = true ]] && [[ -f "${CACHE_PATH}" ]]; then
+        _log "Remove and update cached server list"
+        rm -rf "${CACHE_PATH}"
+    fi
+    
     if [[ -f "${CACHE_PATH}" ]] && [[ "${USE_CACHE}" = true ]]; then
         _log "Use cached server list in ${CACHE_PATH}"
         readarray -t CSV_SERVERLIST < <(grep -v "^\*" < "${CACHE_PATH}" | grep -v "^#")
@@ -260,7 +271,7 @@ _connect_vpn(){
 }
 
 #-- Parse argument --#
-OPTS=("a" "c" "g" "h" "t:") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:")
+OPTS=("a" "c" "g" "h" "t:" "u") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update")
 GETOPT=(-o "$(printf "%s," "${OPTS[@]}")" -l "$(printf "%s," "${OPTL[@]}")" -- "${@}")
 getopt -Q "${GETOPT[@]}" || exit 1 # 引数エラー判定
 readarray -t OPT < <(getopt "${GETOPT[@]}") # 配列に代入
@@ -273,6 +284,7 @@ while true; do
         -c | --cli     ) MODE="CLI"                ; shift 1 ;;
         -g | --gtk     ) MODE="GUI"                ; shift 1 ;;
         -t | --type    ) VPN_TYPE="${2}"           ; shift 2 ;;
+        -u | --update  ) UPDATE_CACHE=true         ; shift 1 ;;
              --country ) TargetCountryShort="${2}" ; shift 2 ;;
              --nocache ) USE_CACHE=false           ; shift 1 ;;
         --             ) shift 1                   ; break   ;;
