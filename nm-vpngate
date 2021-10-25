@@ -30,7 +30,7 @@ UPDATE_CACHE=false
 #-- Message functions --#
 _log(){   echo "[ LOG ]: ${*}" >&2; }
 _msg(){
-    [[ "${MODE}" = "CLI" ]] && echo "[${1}]: ${2}" >&2 && return 0
+    [[ ! "${MODE}" = "GUI" ]] && echo "[${1}]: ${2}" >&2 && return 0
     zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
 }
 _info(){  _msg " INFO" "${*}"; }
@@ -199,9 +199,50 @@ _select_server_gtk(){
     fi
 }
 _select_server_auto(){
-    _info "Auto mode has been selected.Connect to the server with the highest score."
-    local _maxscore="$(printf "%s\n" "${ScoreList[@]}" | sort -nr | head -n 1)"
-    TargetScore="${_maxscore}" _filter_server_list
+    _info "Auto mode has been selected. "
+    local _sort_opt _value_list _target_value
+
+    # Change the argument of the sort command depending on the maximum or minimum value
+    case "${AUTO_COND}" in
+        "MAX")
+            _log "Connect to the server with the highest ${AUTO_TARGET} value."
+            _sort_opt=("-n" "-r")
+            ;;
+        "MIN")
+            _log "Connect to the server with the lowest ${AUTO_TARGET} value."
+            _sort_opt=("-n")
+            ;;
+        *)
+            _error "Specify only MIN or MAX for AUTO_COND."
+            exit 1
+            ;;
+    esac
+
+    # Exit if the array of values specified by AUTO_TARGET does not exist
+    if [[ -z "$(eval echo "\${${AUTO_TARGET}List[*]}")" ]]; then
+        _error "The specified AUTO_TARGET is an invalid value."
+        exit 1
+    fi
+
+    # Copy the array specified by AUTO_TARGET to _value_list
+    readarray -t _value_list < <(eval "printf \"%s\n\" \"\${${AUTO_TARGET}List[@]}\"")
+
+    # Get maximum or minimum
+    _target_value="$(printf "%s\n" "${_value_list[@]}" | sort "${_sort_opt[@]}" | head -n 1)"
+
+    # Check whether  _target_value is number
+    if ! printf "%s" "${_target_value}" | grep -qE "^[0-9]+$"; then
+        _error "For AUTO_TARGET, enter only numerical items such as Ping."
+        exit 1
+    fi
+
+    # Set conditions
+    eval "Target${AUTO_TARGET}=${_target_value}"
+
+    # Run filter
+    _filter_server_list "Target${AUTO_TARGET}"
+
+    # Get the name from the filtered server list
     SelectedVPNName=$(cut -d "," -f 1 <<< "${CSV_SERVERLIST[0]}")
 }
 
@@ -209,6 +250,7 @@ _select_server_auto(){
 _get_server_from_name(){
     _log "Getting server information ..."
     if [[ -n "${SelectedVPNName-""}" ]]; then
+        _log "Selected server name is ${SelectedVPNName}"
         SelectedIndex=$(awk "BEGIN {FS=\",\"} {
             if (\$1 == \"${SelectedVPNName}\" ){
                 print NR - 1
