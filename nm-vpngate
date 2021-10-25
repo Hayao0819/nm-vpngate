@@ -269,7 +269,7 @@ unset OPT OPTS OPTL DEFAULT_ARGUMENT GETOPT
 
 while true; do
     case "${1}" in
-        -a | --auto    ) AUTO_SETUP=true           ; shift 1 ;;
+        -a | --auto    ) MODE="AUTO"               ; shift 1 ;;
         -c | --cli     ) MODE="CLI"                ; shift 1 ;;
         -g | --gtk     ) MODE="GUI"                ; shift 1 ;;
         -t | --type    ) VPN_TYPE="${2}"           ; shift 2 ;;
@@ -299,6 +299,9 @@ else
             ;;
         "CLI")
             _select_server_cli
+            ;;
+        "AUTO")
+            _select_server_auto
             ;;
         *)
             _error "${MODE} is not correct"
