@@ -9,7 +9,18 @@
 # A script that makes it easy to connect Network Manager to a VPN Gate
 # 
 set -Eeu
+
+# CSV obtained from API will be assigned to this array line by line
 CSV_SERVERLIST=()
+
+# About array in this code
+# _parse_server_list parses the CSV and creates an array with each value assigned.
+# CSV_SERVERLIST contains raw CSV line by line.
+# This will be updated by _filter_server_list.
+# The array name depends on the value set in CSV_VARS.
+# For example, if CSV_VARS has an item called "IP", an array called IPList will be defined.
+# The index numbers of all arrays are matched each other.
+# For example, ${IPList[3]} and ${PingLisrt[3]} point to the same server.
 
 #-- Message functions --#
 _log(){   echo "[ LOG ]: ${*}" >&2; }
