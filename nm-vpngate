@@ -10,6 +10,9 @@
 # 
 set -Eeu
 
+# The directory where the script is located
+script_path="$( cd -P "$( dirname "$(readlink -f "${0}")" )" && pwd )"
+
 # CSV obtained from API will be assigned to this array line by line
 CSV_SERVERLIST=()
 
@@ -49,7 +52,6 @@ _error(){
 }
 
 #-- Config --#
-script_path="$( cd -P "$( dirname "$(readlink -f "${0}")" )" && pwd )"
 for _cfg in "${CONFIG_FILES[@]}"; do
     [[ ! -f "${_cfg}" ]] && continue
     source "${_cfg}" && _log "Loaded ${_cfg}" 
