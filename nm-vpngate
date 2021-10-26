@@ -305,7 +305,7 @@ _setup_vpn_l2tp(){
 }
 
 _setup_vpn(){
-    if nmcli con | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
+    if nmcli -c no con | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
         _warn "${PROFILE_NAME} has been added to the Network Manager"
         _warn "Skip to add it and continue to connent"
         return 0
