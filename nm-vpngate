@@ -18,6 +18,15 @@ CSV_SERVERLIST=()
 # This variable changes to true only when the -u option is specified
 UPDATE_CACHE=false
 
+# List of paths of configuration files to be read
+# Write in ascending order of priority
+CONFIG_FILES=(
+    "/etc/nm-vpngate.conf"
+    "${HOME}/.nm-vpngate.conf"
+    "$(xdg-user-dir)/.config/nm-vpngate.conf"
+    "${script_path}/nm-vpngate.conf"
+)
+
 # About array in this code
 # _parse_server_list parses the CSV and creates an array with each value assigned.
 # CSV_SERVERLIST contains raw CSV line by line.
@@ -41,7 +50,7 @@ _error(){
 
 #-- Config --#
 script_path="$( cd -P "$( dirname "$(readlink -f "${0}")" )" && pwd )"
-for _cfg in "${script_path}/nm-vpngate.conf" "/etc/nm-vpngate.conf" "${HOME}/.nm-vpngate.conf" "$(xdg-user-dir)/.config/nm-vpngate.conf"; do
+for _cfg in "${CONFIG_FILES[@]}"; do
     [[ ! -f "${_cfg}" ]] && continue
     source "${_cfg}" && _log "Loaded ${_cfg}" 
 done
