@@ -133,6 +133,7 @@ _get_server_list(){
 # This function takes a variable name as an argument.
 # Filter the server list with the regular expression set
 # in the passed variable and overwrite CSV_SERVERLIST.
+# Be sure to run _parse_server_list after running this function.
 #
 # _filter_server_list <filter name>
 # Example: _filter_server_list TargetIP
@@ -145,8 +146,8 @@ _filter_server_list(){
     if  [[ -z "${_var}" ]] || [[ -z "$(eval "echo \${${_var}}")" ]]; then 
         _empty=true
     else
-        _log "Configured filters: ${_var}"
         _exp="$(eval "echo \${${_var}}")"
+        _log "Configured filters: ${_var}=${_exp}"
         readarray -t -O "${#CSV_SERVERLIST[@]}" CSV_SERVERLIST < <(awk "BEGIN {FS=\",\"} {
             if (\$${_clm} == \"${_exp}\" || \$${_clm} ~ /${_exp}/ ){
                 print \$0
@@ -246,10 +247,11 @@ _select_server_auto(){
     fi
 
     # Set conditions
-    eval "Target${AUTO_TARGET}=${_target_value}"
+    eval "Target${AUTO_TARGET}=^${_target_value}$"
 
     # Run filter
     _filter_server_list "Target${AUTO_TARGET}"
+    _parse_server_list
 
     # Get the name from the filtered server list
     SelectedVPNName=$(cut -d "," -f 1 <<< "${CSV_SERVERLIST[0]}")
@@ -269,6 +271,8 @@ _get_server_from_name(){
         _error "Failed to get server name"
         exit 1
     fi
+
+    #_log "Index number is ${SelectedIndex}"
     _log "Server name:${HostNameList[${SelectedIndex}]}, IP: ${IPList[${SelectedIndex}]}, Country: ${CountryShortList[${SelectedIndex}]}"
 }
 
