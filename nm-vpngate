@@ -240,7 +240,7 @@ _select_server_auto(){
     readarray -t _value_list < <(eval "printf \"%s\n\" \"\${${AUTO_TARGET}List[@]}\"")
 
     # Get maximum or minimum
-    _target_value="$(printf "%s\n" "${_value_list[@]}" | sort "${_sort_opt[@]}" | head -n 1)"
+    _target_value="$(printf "%s\n" "${_value_list[@]}" | sort "${_sort_opt[@]}" | grep -E "^[0-9]+$" | head -n 1)"
 
     # Check whether  _target_value is number
     if ! printf "%s" "${_target_value}" | grep -qE "^[0-9]+$"; then
