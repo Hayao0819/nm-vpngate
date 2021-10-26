@@ -321,8 +321,18 @@ _setup_vpn(){
 }
 
 #-- Connect to VPN --#
+# PROFILE_NAMEのUUIDを返します
+_get_uuid(){
+    nmcli -c no con show | sed "1d" | awk "{ if (\$1 == \"${PROFILE_NAME}\"){ print \$2} }"
+}
+
 _connect_vpn(){
     local _exit=0
+    if nmcli -c no con show --active | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
+        _warn "${PROFILE_NAME} has been avtivated on this system."
+        _warn "Skip to connect it and exit."
+        exit 0
+    fi
     nmcli con up id "${PROFILE_NAME}" || _exit="${?}"
     (( _exit == 0)) && _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})" && exit 0
     _error "Network Manager has returned non-zero exit code."
