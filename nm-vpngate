@@ -252,6 +252,26 @@ _select_server_auto(){
     # Get the name from the filtered server list
     SelectedVPNName=$(cut -d "," -f 1 <<< "${CSV_SERVERLIST[0]}")
 }
+_select_server(){
+    if [[ "${AUTO_SETUP=false}" = true ]]; then
+        _select_server_auto
+    else
+        case "${MODE}" in
+            "GUI")
+                _select_server_gtk
+                ;;
+            "CLI")
+                _select_server_cli
+                ;;
+            "AUTO")
+                _select_server_auto
+                ;;
+            *)
+                _error "${MODE} is not correct"
+                ;;
+        esac
+    fi
+}
 
 #-- Get server info from serner name --#
 _get_server_from_name(){
@@ -371,26 +391,7 @@ _prepare_env
 _get_server_list
 _run_filter
 _parse_server_list
-
-if [[ "${AUTO_SETUP=false}" = true ]]; then
-    _select_server_auto
-else
-    case "${MODE}" in
-        "GUI")
-            _select_server_gtk
-            ;;
-        "CLI")
-            _select_server_cli
-            ;;
-        "AUTO")
-            _select_server_auto
-            ;;
-        *)
-            _error "${MODE} is not correct"
-            ;;
-    esac
-fi
-
+_select_server
 _get_server_from_name
 _parse_profile_name
 _setup_vpn
