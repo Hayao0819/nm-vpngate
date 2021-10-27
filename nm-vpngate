@@ -30,6 +30,9 @@ CONFIG_FILES=(
     "${script_path}/nm-vpngate.conf"
 )
 
+# Number of read configuration files
+LOADED_CONFIG_NUMBER=0
+
 # About array in this code
 # _parse_server_list parses the CSV and creates an array with each value assigned.
 # CSV_SERVERLIST contains raw CSV line by line.
@@ -40,15 +43,16 @@ CONFIG_FILES=(
 # For example, ${IPList[3]} and ${PingLisrt[3]} point to the same server.
 
 #-- Message functions --#
-_log(){   echo "[ LOG ]: ${*}" >&2; }
+_log(){   echo "[ LOG ]: ${1}" >&2; }
 _msg(){
     [[ ! "${MODE}" = "GUI" ]] && echo "[${1}]: ${2}" >&2 && return 0
     zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
 }
-_info(){  _msg " INFO" "${*}"; }
-_warn(){  echo "[ WARN]: ${*}" >&2; }
+_info(){  _msg " INFO" "${1}"; }
+_warn(){  echo "[ WARN]: ${1}" >&2; }
 _error(){ 
-    _msg "ERROR" "${*}"
+    _msg "ERROR" "${1}"
+    [[ -n "${2-""}" ]] && exit "${2}"
 }
 
 #-- Check terminal or GUI --#
@@ -103,6 +107,36 @@ _script_usage(){
     echo "         --country             Set the country filter"
 }
 
+#-- Check environment and functions --#
+_check_env(){
+    local _exit=0
+
+    # Check the number of loaded configuration files
+    if (( LOADED_CONFIG_NUMBER < 1 )); then
+        _error "No configuration file was found."
+        _exit=$((_exit++))
+    fi
+
+    # Check external commands
+    for _cmd in "nmcli" "curl" "systemctl"; do
+        ! type "${_cmd}" 1> /dev/null 2>&1 && \
+            _error "${_cmd} is not installed." && _exit=$((_exit++))
+    done
+
+    # Check NetworkManager VPN Plugin
+    for _vpn in "openvpn" "strongswan" "l2tp" ;do
+        ! [[ -f "/usr/lib/NetworkManager/VPN/nm-${_vpn}-service.name" ]] && \
+            _error "NetworkManager Plugin for ${_vpn} is not installed." && _exit=$((_exit++))
+    done
+
+    # Check Metwork Manager
+    ! systemctl is-active NetworkManager 1> /dev/null 2>&1 && \
+        _error "NetworkManager is not running." && _exit=$((_exit++))
+
+    # Exit if errors has been found
+    (( _exit != 0 )) && exit 1 || return 0
+}
+
 #-- Prepare environment --#
 _prepare_env(){
     mkdir -p "${CONFIG_DIR}"
@@ -134,13 +168,18 @@ _get_server_list(){
 # _filter_server_list <filter name>
 # Example: _filter_server_list TargetIP
 _filter_server_list(){
-    # フィルターを処理
+    # 変数を初期化
     local _Backup_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}") _exp _clm _var="${1-""}" _empty=false
     CSV_SERVERLIST=()
     
+    # $_var（$1）をもとにフィルター対象のカラムを設定
+    # ここで設定した値をawkの変数名として使う
     _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${_var//Target/}\"){ print NR }}")"
+
+    # フィルター処理
     if  [[ -z "${_var}" ]] || [[ -z "$(eval "echo \${${_var}}")" ]]; then 
-        _empty=true
+        # フィルター設定がすべて空の場合はすべてのサーバを対象にする
+        CSV_SERVERLIST=("${_Backup_CSV_SERVERLIST[@]}")
     else
         _exp="$(eval "echo \${${_var}}")"
         _log "Configured filters: ${_var}=${_exp}"
@@ -150,9 +189,6 @@ _filter_server_list(){
             }
         }" < <(printf "%s\n" "${_Backup_CSV_SERVERLIST[@]}"))
     fi
-
-    # フィルター設定がすべて空の場合はすべてのサーバを対象にする
-    [[ "${_empty}" = true ]] && CSV_SERVERLIST=("${_Backup_CSV_SERVERLIST[@]}")
 
     # 重複しているサーバを削除
     readarray -t CSV_SERVERLIST < <(printf "%s\n" "${CSV_SERVERLIST[@]}" | awk '!a[$0]++{print}')
@@ -250,7 +286,7 @@ _select_server_auto(){
     _parse_server_list
 
     # Get the name from the filtered server list
-    SelectedVPNName=$(cut -d "," -f 1 <<< "${CSV_SERVERLIST[0]}")
+    SelectedVPNName="$(cut -d "," -f 1 <<< "${CSV_SERVERLIST[0]}")"
 }
 _select_server(){
     if [[ "${AUTO_SETUP=false}" = true ]]; then
@@ -278,11 +314,11 @@ _get_server_from_name(){
     _log "Getting server information ..."
     if [[ -n "${SelectedVPNName-""}" ]]; then
         _log "Selected server name is ${SelectedVPNName}"
-        SelectedIndex=$(awk "BEGIN {FS=\",\"} {
+        SelectedIndex="$(awk "BEGIN {FS=\",\"} {
             if (\$1 == \"${SelectedVPNName}\" ){
                 print NR - 1
             }
-        }" < <(printf "%s\n" "${CSV_SERVERLIST[@]}"))
+        }" < <(printf "%s\n" "${CSV_SERVERLIST[@]}") )"
     else
         _error "Failed to get server name"
         exit 1
@@ -383,10 +419,11 @@ done
 #-- Config --#
 for _cfg in "${CONFIG_FILES[@]}"; do
     [[ ! -f "${_cfg}" ]] && continue
-    source "${_cfg}" && _log "Loaded ${_cfg}" 
+    source "${_cfg}" && _log "Loaded ${_cfg}"; LOADED_CONFIG_NUMBER="$(( LOADED_CONFIG_NUMBER + 1 ))"
 done
 
 #-- Run --#
+_check_env
 _prepare_env
 _get_server_list
 _run_filter

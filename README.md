@@ -12,7 +12,7 @@ A script that makes it easy to connect Network Manager to a VPN Gate
 
 ## Support VPN method
 - OpenVPN (Install `networkmanager-openvpn`)
-- L2TP (Install `networkmanager-strongswan`)
+- L2TP (Install `networkmanager-strongswan` `networkmanager-l2tp`)
 
 ## Dependency
 This script is developed on Arch Linux and test on Arch Linux and Ubuntu.
@@ -20,6 +20,7 @@ This script is developed on Arch Linux and test on Arch Linux and Ubuntu.
 - networkmanager (nmcli)
 - networkmanager-openvpn
 - networkmanager-strongswan
+- networkmanager-l2tp
 - bash (Tested version is 5.1.8)
 - curl
 - GNU getopt
