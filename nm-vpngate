@@ -26,7 +26,7 @@ UPDATE_CACHE=false
 CONFIG_FILES=(
     "/etc/nm-vpngate.conf"
     "${HOME}/.nm-vpngate.conf"
-    "$(xdg-user-dir)/.config/nm-vpngate.conf"
+    "${XDG_CONFIG_HOME-"${HOME}/.config"}/nm-vpngate.conf"
     "${script_path}/nm-vpngate.conf"
 )
 
