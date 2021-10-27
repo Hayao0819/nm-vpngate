@@ -51,12 +51,6 @@ _error(){
     _msg "ERROR" "${*}"
 }
 
-#-- Config --#
-for _cfg in "${CONFIG_FILES[@]}"; do
-    [[ ! -f "${_cfg}" ]] && continue
-    source "${_cfg}" && _log "Loaded ${_cfg}" 
-done
-
 #-- Check terminal or GUI --#
 #test -t 0 || MODE="GUI" && MODE="CLI"
 
@@ -364,6 +358,12 @@ while true; do
             exit 1
             ;;
     esac
+done
+
+#-- Config --#
+for _cfg in "${CONFIG_FILES[@]}"; do
+    [[ ! -f "${_cfg}" ]] && continue
+    source "${_cfg}" && _log "Loaded ${_cfg}" 
 done
 
 #-- Run --#
