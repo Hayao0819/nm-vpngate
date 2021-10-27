@@ -360,7 +360,7 @@ while true; do
         --             ) shift 1                     ; break   ;;
         *)
             _error "Argument exception error '${1}'"
-            _error "Please report this error to the developer."
+            _error "Please report this error to the developer with your command line argument."
             exit 1
             ;;
     esac
