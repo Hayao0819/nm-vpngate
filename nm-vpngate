@@ -408,7 +408,7 @@ _connect_vpn(){
     (( _exit == 0)) && _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})" && exit 0
 
     # 失敗時の処理
-    if [[ "${MODE}" = "AUTO" ]]; then
+    if [[ "${MODE}" = "AUTO" ]] && { (( AUTO_LIMIT == 0 )) || (( AUTO_LIMIT > AUTO_TRY_COUNT )); }; then
         # 別のサーバで再接続を試みる
         AUTO_TRY_COUNT="$(( AUTO_TRY_COUNT + 1 ))"
         CSV_SERVERLIST=("${AUTO_CSV_SERVERLIST[@]}") # Reset server list
@@ -428,7 +428,7 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-OPTS=("a" "c" "g" "h" "t:" "u") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update")
+OPTS=("a" "c" "g" "h" "t:" "u" "l:") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update" "limit:")
 GETOPT=(-o "$(printf "%s," "${OPTS[@]}")" -l "$(printf "%s," "${OPTL[@]}")" -- "${@}")
 getopt -Q "${GETOPT[@]}" || exit 1 # 引数エラー判定
 readarray -t OPT < <(getopt "${GETOPT[@]}") # 配列に代入
@@ -444,6 +444,7 @@ while true; do
         -u | --update  ) UPDATE_CACHE=true           ; shift 1 ;;
              --country ) TargetCountryShort="^${2}$" ; shift 2 ;;
              --nocache ) USE_CACHE=false             ; shift 1 ;;
+        -l | --limit   ) AUTO_LIMIT="${2}"           : shift 2 ;;
         -h | --help    ) _script_usage               ; exit  0 ;;
         --             ) shift 1                     ; break   ;;
         *)
