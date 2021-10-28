@@ -33,6 +33,14 @@ CONFIG_FILES=(
 # Number of read configuration files
 LOADED_CONFIG=()
 
+# Number of attempts in auto mode
+# The initial value is 1, and it increases by 1 for each failure.
+# If it fails, it will try to connect to the next server.
+AUTO_TRY_COUNT=1
+
+# Backup of server list for AUTO MODE
+AUTO_CSV_SERVERLIST=()
+
 # About array in this code
 # _parse_server_list parses the CSV and creates an array with each value assigned.
 # CSV_SERVERLIST contains raw CSV line by line.
@@ -100,11 +108,12 @@ _script_usage(){
     echo "    -a | --auto                Automatically connect to the server with the highest score"
     echo "    -c | --cli                 Set the mode to CLI"
     echo "    -g | --gtk                 Set thr mode to GTK (GUI)"
+    #echo "    -l | --limit [number]      Limit the number of automatic connection attempts"
     echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
     echo "    -u | --update              Update the cache of server list"
     echo "    -h | --help                Show this help and exit."
     echo "         --nocache             Do not use cached server list"
-    echo "         --country             Set the country filter"
+    echo "         --country [country]   Set the country filter"
 }
 
 #-- Check environment and functions --#
@@ -243,8 +252,12 @@ _select_server_gtk(){
     fi
 }
 _select_server_auto(){
+    AUTO_SETUP=true MODE="AUTO"
     _info "Auto mode has been selected. "
     local _sort_opt _value_list _target_value
+
+    # Backup server list at first
+    (( AUTO_TRY_COUNT < 2 )) && AUTO_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}")
 
     # Change the argument of the sort command depending on the maximum or minimum value
     case "${AUTO_COND}" in
@@ -272,7 +285,7 @@ _select_server_auto(){
     readarray -t _value_list < <(eval "printf \"%s\n\" \"\${${AUTO_TARGET}List[@]}\"")
 
     # Get maximum or minimum
-    _target_value="$(printf "%s\n" "${_value_list[@]}" | sort "${_sort_opt[@]}" | grep -E "^[0-9]+$" | head -n 1)"
+    _target_value="$(printf "%s\n" "${_value_list[@]}" | sort "${_sort_opt[@]}" | grep -E "^[0-9]+$" | head -n "${AUTO_TRY_COUNT}" | tail -n 1)"
 
     # Check whether  _target_value is number
     if ! printf "%s" "${_target_value}" | grep -qE "^[0-9]+$"; then
@@ -380,15 +393,32 @@ _get_uuid(){
 
 _connect_vpn(){
     local _exit=0
+
+    # すでに接続されているか確認
     if nmcli -c no con show --active | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
         _warn "${PROFILE_NAME} has been avtivated on this system."
         _warn "Skip to connect it and exit."
         exit 0
     fi
+
+    # 接続試行
     nmcli con up id "${PROFILE_NAME}" || _exit="${?}"
+
+    # 接続に成功すれば終了
     (( _exit == 0)) && _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})" && exit 0
-    _error "Network Manager has returned non-zero exit code."
-    exit "${_exit}"
+
+    # 失敗時の処理
+    if [[ "${MODE}" = "AUTO" ]]; then
+        # 別のサーバで再接続を試みる
+        AUTO_TRY_COUNT="$(( AUTO_TRY_COUNT + 1 ))"
+        CSV_SERVERLIST=("${AUTO_CSV_SERVERLIST[@]}") # Reset server list
+        _parse_server_list
+        _select_server_auto
+        _connect
+    else
+        _error "Network Manager has returned non-zero exit code."
+        exit "${_exit}"
+    fi
 }
 
 #-- Config --#
@@ -428,13 +458,22 @@ done
 for _cfg in "${LOADED_CONFIG[@]}"; do _log "Loaded ${_cfg}"; done
 
 #-- Run --#
-_check_env
-_prepare_env
-_get_server_list
-_run_filter
-_parse_server_list
+_prepare(){
+    _check_env
+    _prepare_env
+    _get_server_list
+    _run_filter
+    _parse_server_list
+}
+
+_connect(){
+    _get_server_from_name
+    _parse_profile_name
+    _setup_vpn
+    _connect_vpn
+}
+
+_prepare
 _select_server
-_get_server_from_name
-_parse_profile_name
-_setup_vpn
-_connect_vpn
+_connect
+exit 0
