@@ -354,13 +354,16 @@ _parse_profile_name(){
 
 #-- Set up connection --#
 _setup_vpn_openvpn(){
+    local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+
     #-- Save ovpn file --#
-    _log "Save OVPN file to ${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
-    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" |  base64 -di > "${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+    _log "Save OVPN file to ${_ovpn_file}"
+    [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
+    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | base64 -di > "${_ovpn_file}"
 
     #-- Import OVPN file --#
-    _log "Import ${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
-    nmcli connection import type openvpn file "${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+    _log "Import ${_ovpn_file}"
+    nmcli connection import type openvpn file "${_ovpn_file}"
 }
 
 _setup_vpn_l2tp(){
