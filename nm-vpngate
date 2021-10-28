@@ -31,7 +31,7 @@ CONFIG_FILES=(
 )
 
 # Number of read configuration files
-LOADED_CONFIG_NUMBER=0
+LOADED_CONFIG=()
 
 # About array in this code
 # _parse_server_list parses the CSV and creates an array with each value assigned.
@@ -391,6 +391,12 @@ _connect_vpn(){
     exit "${_exit}"
 }
 
+#-- Config --#
+for _cfg in "${CONFIG_FILES[@]}"; do
+    [[ ! -f "${_cfg}" ]] && continue
+    source "${_cfg}" && LOADED_CONFIG+=("${_cfg}")
+done
+
 #-- Parse argument --#
 OPTS=("a" "c" "g" "h" "t:" "u") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update")
 GETOPT=(-o "$(printf "%s," "${OPTS[@]}")" -l "$(printf "%s," "${OPTL[@]}")" -- "${@}")
@@ -418,11 +424,8 @@ while true; do
     esac
 done
 
-#-- Config --#
-for _cfg in "${CONFIG_FILES[@]}"; do
-    [[ ! -f "${_cfg}" ]] && continue
-    source "${_cfg}" && _log "Loaded ${_cfg}"; LOADED_CONFIG_NUMBER="$(( LOADED_CONFIG_NUMBER + 1 ))"
-done
+#-- Config message --#
+for _cfg in "${LOADED_CONFIG[@]}"; do _log "Loaded ${_cfg}"; done
 
 #-- Run --#
 _check_env
