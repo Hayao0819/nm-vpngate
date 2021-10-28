@@ -1,0 +1,16 @@
+[Unit]
+Description=Automatically connects to a VPN Gate that matches the conditions
+After=network-online.target
+Requires=NetworkManager.service
+Documentation=https://github.com/Hayao0819/nm-vpngate
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nm-vpngate -a -l 5
+ExecStop=/usr/bin/nm-vpngate --stop
+ExecStopPost=/usr/bin/nm-vpngate --stop
+Restart=on-failure
+RemainAfterExit=yes
+
+[Install]
+WantedBy=network-online.target
