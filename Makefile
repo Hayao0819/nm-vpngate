@@ -1,14 +1,16 @@
 PWD      := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
-DESTDIR  := /usr/
+DESTDIR  := /
 ETCDIR   := ${DESTDIR}/etc/
-BINDIR   := ${DESTDIR}/bin/
+USRDIR   := ${DESTDIR}/usr
+BINDIR   := ${USRDIR}/bin/
+
+install: creatdir
+	install -D -m 755 "${PWD}/nm-vpngate"          "${BINDIR}/nm-vpngate"
+	install -D -m 644 "${PWD}/nm-vpngate.conf"     "${ETCDIR}/nm-vpngate.conf"
+	install -D -m 644 "${PWD}/nm-vpngate.service"  "${USRDIR}/lib/systemd/system/nm-vpngate.service"
 
 creatdir:
 	@mkdir -p "${ETCDIR}" "${BINDIR}"
-
-install: creatdir
-	install -D -m 755 "${PWD}/nm-vpngate"      "${BINDIR}/nm-vpngate"
-	install -D -m 644 "${PWD}/nm-vpngate.conf" "${ETCDIR}/nm-vpngate.conf"
 
 uninstall:
 	rm -f "${BINDIR}/nm-vpngate" "${ETCDIR}/nm-vpngate.conf"
