@@ -113,6 +113,7 @@ _script_usage(){
     echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
     echo "    -u | --update              Update the cache of server list"
     echo "    -h | --help                Show this help and exit"
+    echo "         --stop                Disconnects and exits the currently valid VPN connection"
     echo "         --nocache             Do not use cached server list"
     echo "         --country [country]   Set the country filter"
 }
@@ -151,7 +152,7 @@ _check_env(){
 
 #-- Prepare environment --#
 _prepare_env(){
-    mkdir -p "${CONFIG_DIR}"
+    mkdir -p "${CONFIG_DIR}" "${CACHE_DIR}"
 }
 
 #-- Get server list from API or cache--#
@@ -409,7 +410,11 @@ _connect_vpn(){
     nmcli con up id "${PROFILE_NAME}" || _exit="${?}"
 
     # 接続に成功すれば終了
-    (( _exit == 0)) && _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})" && exit 0
+    if (( _exit == 0)); then
+        _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})"
+        echo "${PROFILE_NAME}" > "${CACHE_DIR}/connected"
+        exit 0
+    fi
 
     # 失敗時の処理
     if [[ "${REMOVE_PROFILE}" = true ]]; then
@@ -429,6 +434,16 @@ _connect_vpn(){
     fi
 }
 
+#-- Stop VPN --#
+# 
+_stop_vpn(){
+    local _current_profile
+    { [[ ! -f "${CACHE_DIR}/connected" ]] || [[ -z "$(cat "${CACHE_DIR}/connected")" ]]; } && exit 0
+    _current_profile="$(cat "${CACHE_DIR}/connected")"
+    nmcli con down id "${_current_profile}"
+}
+
+
 #-- Config --#
 for _cfg in "${CONFIG_FILES[@]}"; do
     [[ ! -f "${_cfg}" ]] && continue
@@ -436,7 +451,7 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-OPTS=("a" "c" "g" "h" "t:" "u" "l:" "r") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update" "limit:" "remove")
+OPTS=("a" "c" "g" "h" "t:" "u" "l:" "r") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update" "limit:" "remove" "stop")
 GETOPT=(-o "$(printf "%s," "${OPTS[@]}")" -l "$(printf "%s," "${OPTL[@]}")" -- "${@}")
 getopt -Q "${GETOPT[@]}" || exit 1 # 引数エラー判定
 readarray -t OPT < <(getopt "${GETOPT[@]}") # 配列に代入
@@ -455,6 +470,7 @@ while true; do
         -l | --limit   ) AUTO_LIMIT="${2}"           ; shift 2 ;;
         -r | --remove  ) REMOVE_PROFILE=true         ; shift 1 ;;
         -h | --help    ) _script_usage               ; exit  0 ;;
+             --stop    ) _stop_vpn                   ; exit  0 ;;
         --             ) shift 1                     ; break   ;;
         *)
             _error "Argument exception error '${1}'"
