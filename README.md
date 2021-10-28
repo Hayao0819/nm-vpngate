@@ -2,6 +2,7 @@
 A script that makes it easy to connect Network Manager to a VPN Gate
 
 ## Feature
+- Everything is written in shell scripts.
 - Use the CSV API of VPN Gate
 - Cache the server list
 - Specializes in NetworkManager
@@ -9,6 +10,8 @@ A script that makes it easy to connect Network Manager to a VPN Gate
 - Supports server list by GUI
 - Server filtering using regular expressions in config files
 - Automatically connects to a server that matches the specified conditions
+- Automatically remove settings that failed to connect
+- Automatically connects with Systemd Unit
 
 ## Support VPN method
 - OpenVPN (Install `networkmanager-openvpn`)
