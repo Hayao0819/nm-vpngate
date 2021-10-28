@@ -112,7 +112,7 @@ _check_env(){
     local _exit=0
 
     # Check the number of loaded configuration files
-    if (( LOADED_CONFIG_NUMBER < 1 )); then
+    if (( "${#LOADED_CONFIG[@]}" < 1 )); then
         _error "No configuration file was found."
         _exit=$((_exit++))
     fi
