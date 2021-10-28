@@ -25,8 +25,8 @@ UPDATE_CACHE=false
 # Write in ascending order of priority
 CONFIG_FILES=(
     "/etc/nm-vpngate.conf"
-    "${HOME}/.nm-vpngate.conf"
-    "${XDG_CONFIG_HOME-"${HOME}/.config"}/nm-vpngate.conf"
+    "${HOME="/root"}/.nm-vpngate.conf"
+    "${XDG_CONFIG_HOME-"${HOME="/root"}/.config"}/nm-vpngate.conf"
     "${script_path}/nm-vpngate.conf"
 )
 
