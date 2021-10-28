@@ -108,10 +108,11 @@ _script_usage(){
     echo "    -a | --auto                Automatically connect to the server with the highest score"
     echo "    -c | --cli                 Set the mode to CLI"
     echo "    -g | --gtk                 Set thr mode to GTK (GUI)"
-    #echo "    -l | --limit [number]      Limit the number of automatic connection attempts"
+    echo "    -l | --limit [number]      Limit the number of automatic connection attempts"
+    echo "    -r | --remove              Remove the settings when the connection fails"
     echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
     echo "    -u | --update              Update the cache of server list"
-    echo "    -h | --help                Show this help and exit."
+    echo "    -h | --help                Show this help and exit"
     echo "         --nocache             Do not use cached server list"
     echo "         --country [country]   Set the country filter"
 }
@@ -411,6 +412,10 @@ _connect_vpn(){
     (( _exit == 0)) && _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})" && exit 0
 
     # 失敗時の処理
+    if [[ "${REMOVE_PROFILE}" = true ]]; then
+        _error "Remove ${PROFILE_NAME} from Network Manager"
+        nmcli con delete "${PROFILE_NAME}" || true
+    fi
     if [[ "${MODE}" = "AUTO" ]] && { (( AUTO_LIMIT == 0 )) || (( AUTO_LIMIT > AUTO_TRY_COUNT )); }; then
         # 別のサーバで再接続を試みる
         AUTO_TRY_COUNT="$(( AUTO_TRY_COUNT + 1 ))"
@@ -431,7 +436,7 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-OPTS=("a" "c" "g" "h" "t:" "u" "l:") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update" "limit:")
+OPTS=("a" "c" "g" "h" "t:" "u" "l:" "r") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update" "limit:" "remove")
 GETOPT=(-o "$(printf "%s," "${OPTS[@]}")" -l "$(printf "%s," "${OPTL[@]}")" -- "${@}")
 getopt -Q "${GETOPT[@]}" || exit 1 # 引数エラー判定
 readarray -t OPT < <(getopt "${GETOPT[@]}") # 配列に代入
@@ -448,6 +453,7 @@ while true; do
              --country ) TargetCountryShort="^${2}$" ; shift 2 ;;
              --nocache ) USE_CACHE=false             ; shift 1 ;;
         -l | --limit   ) AUTO_LIMIT="${2}"           ; shift 2 ;;
+        -r | --remove  ) REMOVE_PROFILE=true         ; shift 1 ;;
         -h | --help    ) _script_usage               ; exit  0 ;;
         --             ) shift 1                     ; break   ;;
         *)
