@@ -60,7 +60,7 @@ _info(){  _msg " INFO" "${1}"; }
 _warn(){  echo "[ WARN]: ${1}" >&2; }
 _error(){ 
     _msg "ERROR" "${1}"
-    [[ -n "${2-""}" ]] && exit "${2}"
+    [[ -n "${2-""}" ]] || return 0 && exit "${2}"
 }
 
 #-- Check terminal or GUI --#
