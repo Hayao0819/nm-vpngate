@@ -265,7 +265,7 @@ _select_server_gtk(){
 }
 _select_server_name(){
     # Name check
-    [[ -z "${SelectedVPNName-""}" ]] && {
+    [[ -n "${SelectedVPNName-""}" ]] || {
         _error "No server was selected" 1
     }
 }
