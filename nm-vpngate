@@ -338,6 +338,11 @@ _select_server(){
 
 #-- Get server info from serner name --#
 _get_server_from_name(){
+    #printf "%s\n" "${CSV_SERVERLIST[@]}" | cut -d "," -f "$(_get_csv_clm "HostName")"
+    ! printf "%s\n" "${HostNameList[@]}" | grep -qx "${SelectedVPNName}" && {
+        _error "${SelectedVPNName} was not found in server list."
+        _error "Check the server name and refresh the server list cache." 1
+    }
     _log "Getting server information ..."
     if [[ -n "${SelectedVPNName-""}" ]]; then
         _log "Selected server name is ${SelectedVPNName}"
