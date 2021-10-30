@@ -118,6 +118,16 @@ _script_usage(){
     echo "         --country [country]   Set the country filter"
 }
 
+# Returns the column number of CSV_VARS.
+# For example, if you say CSV_VARS = "Name,IP,Ping" and run _get_csv_clm IP, 2 will be returned.
+# _get_csv_clm <var name>
+_get_csv_clm(){
+    local _clm
+    _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${1}\"){ print NR }}")"
+    [[ -n "${_clm}" ]] && echo "${_clm}" && return 0
+    return 1
+}
+
 #-- Check environment and functions --#
 _check_env(){
     local _exit=0
