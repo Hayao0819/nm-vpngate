@@ -250,14 +250,21 @@ _select_server_cli(){
     SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)"
 }
 _select_server_gtk(){
+    # CSV_VARSのぶんだけリストのカラムを作成
     _log "Configuring graphical user interface ..."
     while read -r _var; do
         _args+=(--column="${_var}")
     done < <(tr "," "\n" <<< "${CSV_VARS}")
+
+    # サーバ情報をZenityに渡す
     for _server in "${CSV_SERVERLIST[@]}"; do
         readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
     done
+
+    # OpenVPN_ConfigData_Base64を非表示にする
     _args+=("--hide-column" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+
+    # Zenityを実行する
     if ! SelectedVPNName="$(zenity --list --title="${APP_NAME}" --text="Please select server that you want to connect" "${_args[@]}")"; then
         _log "zenity has terminated abnormally."
         exit 1
@@ -347,14 +354,18 @@ _select_server(){
 
 #-- Get server info from serner name --#
 _get_server_from_name(){
-    #printf "%s\n" "${CSV_SERVERLIST[@]}" | cut -d "," -f "$(_get_csv_clm "HostName")"
+    # 指定されたサーバ名が存在しなかったら終了する
     ! printf "%s\n" "${HostNameList[@]}" | grep -qx "${SelectedVPNName}" && {
         _error "${SelectedVPNName} was not found in server list."
         _error "Check the server name and refresh the server list cache." 1
     }
+
+    # サーバ情報を取得する
     _log "Getting server information ..."
     if [[ -n "${SelectedVPNName-""}" ]]; then
         _log "Selected server name is ${SelectedVPNName}"
+
+        # 設定された名前のサーバが配列の何番目かを取得
         SelectedIndex="$(awk "BEGIN {FS=\",\"} {
             if (\$1 == \"${SelectedVPNName}\" ){
                 print NR - 1
@@ -365,11 +376,14 @@ _get_server_from_name(){
         exit 1
     fi
 
+    # 取得結果をログ
     #_log "Index number is ${SelectedIndex}"
     _log "Server name:${HostNameList[${SelectedIndex}]}, IP: ${IPList[${SelectedIndex}]}, Country: ${CountryShortList[${SelectedIndex}]}"
 }
 
 #-- Parse format --#
+# PROFILE_NAME_FORMATに従ってPROFILE_NAMEを設定します
+# CSV_VARSの置き換えをwhileで繰り返し行います
 _parse_profile_name(){
     PROFILE_NAME="${PROFILE_NAME_FORMAT}"
     _log "Parsing name format"
