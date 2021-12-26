@@ -168,10 +168,29 @@ _prepare_env(){
     mkdir -p "${CONFIG_DIR}" "${CACHE_DIR}"
 }
 
+#-- Check and Update server cache --#
+_check_server_cache(){
+    _info "Checking server cache"
+
+    local _current_time _cache_last_update_time _cache_elapsed_time
+    if [[ -f "${CACHE_PATH}" ]]; then
+        _current_time="$(date +%s)" 
+        _cache_last_update_time="$(date +%s -r "${CACHE_PATH}")"
+        _cache_elapsed_time="$(( _current_time - _cache_last_update_time ))"
+
+        (( _cache_elapsed_time > KEEP_CACHE )) && UPDATE_CACHE=true && {
+            _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "${_cache_last_update_time}" )"
+        }
+    else
+        UPDATE_CACHE=false
+    fi
+    return 0
+}
+
 #-- Get server list from API or cache--#
 _get_server_list(){
     _info "Getting and parsing the server list is in progress"
-    if [[ "${UPDATE_CACHE}" = true ]] && [[ -f "${CACHE_PATH}" ]]; then
+    if [[ "${UPDATE_CACHE}" = true ]]; then
         _log "Remove and update cached server list"
         rm -rf "${CACHE_PATH}"
     fi
@@ -545,6 +564,7 @@ for _cfg in "${LOADED_CONFIG[@]}"; do _log "Loaded ${_cfg}"; done
 _prepare(){
     _check_env
     _prepare_env
+    _check_server_cache
     _get_server_list
     _run_filter
     _parse_server_list
