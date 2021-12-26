@@ -5,6 +5,7 @@ A script that makes it easy to connect Network Manager to a VPN Gate
 - Everything is written in shell scripts.
 - Use the CSV API of VPN Gate
 - Cache the server list
+- Automatically update the cache
 - Specializes in NetworkManager
 - All actual configuration of the system is done via nmcli
 - Supports server list by GUI
@@ -20,6 +21,8 @@ A script that makes it easy to connect Network Manager to a VPN Gate
 ## Dependency
 This script is developed on Arch Linux and test on Arch Linux and Ubuntu.
 
+- Systemd
+- GNU date
 - networkmanager (nmcli)
 - networkmanager-openvpn
 - networkmanager-strongswan
@@ -64,9 +67,14 @@ If you want to use systemd service to connect VPN Gate automatically, run it to 
 sudo systemctl enable nm-vpngate
 ```
 
+Read the comments in `nm-vpngate.conf` to use advanced settings such as filters.
+
+All settings can be changed in the configuration file.
 
 ## Related directories and files
-These are the directories used by nm-vpngate
+These are the directories used by nm-vpngate.
+
+Some of these can be changed in the configuration file.
 
 - (DIR) ~/.nm-vpngate/  
   Script saves openvpn config to the directory
