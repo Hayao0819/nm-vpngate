@@ -70,30 +70,40 @@ _error(){
 
 # 質問を行う関数
 # Returns only the selected result to standard output
-# ask_question -d <デフォルト値> -p <質問文> <選択肢1> <選択肢2> ...
+# ask_question -n -d <デフォルト値> -p <質問文> <選択肢1> <選択肢2> ...
+# -n: Return with number
 ask_question(){
-    local arg OPTARG OPTIND _default="" _choice_list _count _choice _question _mark
-    while getopts "d:p:" arg; do
+    local arg OPTARG OPTIND _default="" _choice_list _count _choice _question _mark _number=false
+    while getopts "ad:p:n" arg; do
         case "${arg}" in
             d) _default="${OPTARG}" ;;
             p) _question="${OPTARG}" ;;
+            n) _number=true ;;
             *) exit 1 ;;
         esac
     done
     shift "$((OPTIND - 1))" ; _choice_list=("${@}") _digit="${##}"
-    (( ${#_choice_list[@]} < 0 )) && _error "An exception error has occurred." && exit 1
-    (( ${#_choice_list[@]} <= 1 )) && echo "${_choice_list[*]}" && return 0
-    [[ -n "${_question-""}" ]] && echo -e "${_question}" >&2
+    (( ${#_choice_list[@]} < 0 )) && echo "An exception error has occurred." >&2 && exit 1
+    (( ${#_choice_list[@]} <= 1 )) && {
+        [[ "${_number}" = true ]] && echo "1" || echo "${_choice_list[*]}" 
+    } && return 0
+    [[ -n "${_question-""}" ]] && echo "   ${_question}" >&2
     for (( _count=1; _count<=${#_choice_list[@]}; _count++)); do
         _choice="${_choice_list[$(( _count - 1 ))]}" _mark=" "
         { [[ ! "${_default}" = "" ]] && [[ "${_choice}" = "${_default}" ]]; } && _mark="*"
         printf " ${_mark} %${_digit}d: ${_choice}\n" "${_count}" >&2
     done
-    echo -n "(1 ~ ${#_choice_list[@]}) > " >&2 && read -r _input
-    { [[ -z "${_input-""}" ]] && [[ -n "${_default-""}" ]]; } && echo "${_default}" && return 0
-    { printf "%s" "${_input}" | grep -qE "^[0-9]+$";} && { (( 1 <= _input)) && (( _input <= ${#_choice_list[@]} )); } && echo "${_choice_list[$(( _input - 1 ))]}" && return 0
+    echo -n "   (1 ~ ${#_choice_list[@]}) > " >&2 && read -r _input
+    { [[ -z "${_input-""}" ]] && [[ -n "${_default-""}" ]]; } && {
+        [[ "${_number}" = true ]] && echo 0 || echo "${_default}"
+    } && return 0
+    { printf "%s" "${_input}" | grep -qE "^[0-9]+$";} && { (( 1 <= _input)) && (( _input <= ${#_choice_list[@]} )); } && {
+        [[ "${_number}" = true ]] && echo "$(( _input ))" || echo "${_choice_list[$(( _input - 1 ))]}" 
+    } && return 0
     for (( i=0; i <= ${#_choice_list[@]} - 1 ;i++ )); do
-        [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && echo "${_choice_list["${i}"]}" && return 0
+        [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && {
+            [[ "${_number}" = true ]] && echo "$(( i + 1))" || echo "${_choice_list["${i}"]}" 
+        } && return 0
     done
     return 1
 }
