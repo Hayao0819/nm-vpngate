@@ -8,7 +8,7 @@
 #
 # A script that makes it easy to connect Network Manager to a VPN Gate
 # 
-set -Eeu
+set -Eeu -o pipefail
 
 # The directory where the script is located
 script_path="$( cd -P "$( dirname "$(readlink -f "${0}")" )" && pwd )"
@@ -73,7 +73,7 @@ _error(){
 # ask_question -n -d <デフォルト値> -p <質問文> <選択肢1> <選択肢2> ...
 # -n: Return with number
 ask_question(){
-    local arg OPTARG OPTIND _default="" _choice_list _count _choice _question _mark _number=false
+    local arg OPTARG OPTIND _default="" _choice_list _count _choice _question _mark _number=false _returnint _returnstr
     while getopts "ad:p:n" arg; do
         case "${arg}" in
             d) _default="${OPTARG}" ;;
@@ -82,11 +82,9 @@ ask_question(){
             *) exit 1 ;;
         esac
     done
-    shift "$((OPTIND - 1))" ; _choice_list=("${@}") _digit="${##}"
+    shift "$((OPTIND - 1))" && _choice_list=("${@}") _digit="${##}"
     (( ${#_choice_list[@]} < 0 )) && echo "An exception error has occurred." >&2 && exit 1
-    (( ${#_choice_list[@]} <= 1 )) && {
-        [[ "${_number}" = true ]] && echo "1" || echo "${_choice_list[*]}" 
-    } && return 0
+    (( ${#_choice_list[@]} <= 1 )) && _returnint="${_returnint:="1"}" _returnstr="${_returnstr:="${_choice_list[*]}"}"
     [[ -n "${_question-""}" ]] && echo "   ${_question}" >&2
     for (( _count=1; _count<=${#_choice_list[@]}; _count++)); do
         _choice="${_choice_list[$(( _count - 1 ))]}" _mark=" "
@@ -94,17 +92,13 @@ ask_question(){
         printf " ${_mark} %${_digit}d: ${_choice}\n" "${_count}" >&2
     done
     echo -n "   (1 ~ ${#_choice_list[@]}) > " >&2 && read -r _input
-    { [[ -z "${_input-""}" ]] && [[ -n "${_default-""}" ]]; } && {
-        [[ "${_number}" = true ]] && echo 0 || echo "${_default}"
-    } && return 0
-    { printf "%s" "${_input}" | grep -qE "^[0-9]+$";} && { (( 1 <= _input)) && (( _input <= ${#_choice_list[@]} )); } && {
-        [[ "${_number}" = true ]] && echo "$(( _input ))" || echo "${_choice_list[$(( _input - 1 ))]}" 
-    } && return 0
+    { [[ -z "${_input-""}" ]] && [[ -n "${_default-""}" ]]; } && _returnint="${_returnint:="0"}" _returnstr="${_returnstr:="${_default}"}"
+    { printf "%s" "${_input}" | grep -qE "^[0-9]+$" && (( 1 <= _input)) && (( _input <= ${#_choice_list[@]} )); } && _returnint="${_returnint:="${_input}"}" _returnstr="${_returnstr:="${_choice_list[$(( _input - 1 ))]}"}"
     for (( i=0; i <= ${#_choice_list[@]} - 1 ;i++ )); do
-        [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && {
-            [[ "${_number}" = true ]] && echo "$(( i + 1))" || echo "${_choice_list["${i}"]}" 
-        } && return 0
+        [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && _returnint="${_returnint:="$(( i + 1 ))"}" _returnstr="${_returnstr:="${_choice_list["${i}"]}"}"
     done
+    { [[ "${_number}"  = true ]] && [[ -n "${_returnint+SET}" ]]; } && { echo "${_returnint}" && return 0 ;}
+    { [[ "${_number}" = false ]] && [[ -n "${_returnstr+SET}" ]]; } && { echo "${_returnstr}" && return 0 ;}
     return 1
 }
 
@@ -252,12 +246,14 @@ _parse_server_list(){
 
 #-- Select server --#
 _select_server_cli(){
+    local _args=()
     for _server in "${CSV_SERVERLIST[@]}"; do
         #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
         _args+=("$(cut -d "," -f 1,2,7 <<< "${_server}")")
     done
-    SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)"
+    SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)" || _select_server_cli
 }
+
 _select_server_gtk(){
     # CSV_VARSのぶんだけリストのカラムを作成
     _log "Configuring graphical user interface ..."
