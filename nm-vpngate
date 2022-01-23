@@ -189,7 +189,7 @@ parseopt(){
           _OutArg+=("-${_Chr}")
           _Shift=1
         else
-          _error "${1} は不正なオプションです。-hで使い方を確認してください。"
+          _error "-${_Chr} は不正なオプションです。-hで使い方を確認してください。"
           return 1
         fi
       done < <(grep -o . <<< "${1#-}")
