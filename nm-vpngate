@@ -53,8 +53,9 @@ AUTO_CSV_SERVERLIST=()
 #-- Message functions --#
 _log(){   echo "[ LOG ]: ${1}" >&2; }
 _msg(){
-    [[ ! "${MODE}" = "GUI" ]] && echo "[${1}]: ${2}" >&2 && return 0
-    zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
+    echo "[${1}]: ${2}" >&2
+    [[ ! "${MODE}" = "GUI" ]] && return 0
+    #zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
 }
 _info(){  _msg " INFO" "${1}"; }
 _warn(){  echo "[ WARN]: ${1}" >&2; }
