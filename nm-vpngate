@@ -176,13 +176,21 @@ _check_env_nm(){
     return 0
 }
 
+_check_env_openvpn(){
+    # Currently, there is nothing to do
+    true
+}
+
 _check_env(){
     _check_env_common
     case "$SYSTEM_MODE" in
         "network-manager")
             _check_env_nm
             ;;
-        "scutil")
+        "openvpn")
+            _check_env_openvpn
+            ;;
+        "mac")
             _info "Skipped environment check because of Mac OS"
             #_check_env_mac
             ;;
@@ -196,11 +204,19 @@ _prepare_env(){
 
 #-- Detect OS --#
 _detect_os(){
-    if type scutil 1> /dev/null 2>&1; then
-        _info "Found scutil command. Your OS may be Mac OS."
-        SYSTEM_MODE="scutil"
-    else
+    if systemctl is-active NetworkManager 1> /dev/null 2>&1; then
+        _info "Network Manager has been actived."
         SYSTEM_MODE="network-manager"
+    elif  type openvpn 1> /dev/null 2>&1; then
+        _info "Found openvpn command. Use it to connect VPN."
+        SYSTEM_MODE="openvpn"
+    elif type scutil 1> /dev/null 2>&1; then
+        _info "Found scutil command. Your OS may be Mac OS."
+        SYSTEM_MODE="mac"
+
+        # mac does not support yet
+        _error "Sorry, Mac OS does not support yet."
+        exit 1
     fi
 }
 
@@ -488,6 +504,18 @@ _setup_vpn_nm(){
     esac
 }
 
+_setup_vpn_openvpn(){
+    local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+
+    #-- Save ovpn file --#
+    _log "Save OVPN file to ${_ovpn_file}"
+    [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
+    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | base64 -di > "${_ovpn_file}"
+
+    #-- Import OVPN file --#
+    _log "Import $_ovpn_file"
+}
+
 _setup_vpn_mac(){
     _error "I dont known how to connect VPN on Mac with CLI"
 }
@@ -497,7 +525,10 @@ _setup_vpn(){
         "network-manager")
             _setup_vpn_nm
             ;;
-        "scutil")
+        "openvpn")
+            _setup_vpn_openvpn
+            ;;
+        "mac")
             _setup_vpn_mac
             ;;
     esac
@@ -509,7 +540,7 @@ _get_uuid(){
     nmcli -c no con show | sed "1d" | awk "{ if (\$1 == \"${PROFILE_NAME}\"){ print \$2} }"
 }
 
-_connect_vpn(){
+_connect_vpn_nm(){
     local _exit=0
 
     # すでに接続されているか確認
@@ -545,6 +576,23 @@ _connect_vpn(){
         _error "Network Manager has returned non-zero exit code."
         exit "${_exit}"
     fi
+}
+
+_connect_vpn_openvpn(){
+    local _ovpn_file="$CONFIG_DIR/$PROFILE_NAME.ovpn"
+    test -e "$_ovpn_file" || { _error "$PROFILE_NAME was not found."; return 1; }
+    openvpn --config "$_ovpn_file"
+}
+
+_connect_vpn(){
+    case "$SYSTEM_MODE" in
+        "network-manager")
+            _connect_vpn_nm
+            ;;
+        "openvpn")
+            _connect_vpn_openvpn
+            ;;
+    esac
 }
 
 #-- Stop VPN --#
