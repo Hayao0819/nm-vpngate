@@ -102,8 +102,6 @@ ask_question(){
     return 1
 }
 
-#!/usr/bin/env bash
-
 # parseopt LONG="<GNU getopt's long option>" SHORT="<GNU getopt's short option>" -- "${@}"
 # This function does not support the option argument (Example: 'a::')
 # It will return an array named OPTRET
@@ -237,12 +235,27 @@ _get_csv_clm(){
 
 _base64_decode(){
     local _isGnu=false
-    base64 --help | grep -q "GNU" || _isGnu=true
+    base64 --help | grep -q "GNU" && _isGnu=true
 
     if [[ "${_isGnu}" = true ]]; then
         base64 -di
     else
         base64 -D
+    fi
+}
+
+# _dater <path>
+_dater(){
+    local _isGnu=false
+    date --help 2> /dev/null | grep -q "GNU" && _isGnu=true
+
+    if [[ "$_isGnu" = true ]]; then
+        date +%s -r "$1"
+    else
+        {
+            eval "$(stat -s "$1")"
+            echo "$st_mtime"
+        }
     fi
 }
 
@@ -341,11 +354,15 @@ _check_server_cache(){
     local _current_time _cache_last_update_time _cache_elapsed_time
     if [[ -f "${CACHE_PATH}" ]]; then
         _current_time="$(date +%s)" 
-        _cache_last_update_time="$(date +%s -r "${CACHE_PATH}")"
+        _cache_last_update_time="$(_dater "${CACHE_PATH}")"
         _cache_elapsed_time="$(( _current_time - _cache_last_update_time ))"
 
-        (( _cache_elapsed_time > KEEP_CACHE )) && UPDATE_CACHE=true && {
-            _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "${_cache_last_update_time}" )"
+        { (( _cache_elapsed_time > KEEP_CACHE )) || UPDATE_CACHE=true; } && {
+            if date --help 2> /dev/null | grep -q "GNU"; then
+                _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "${_cache_last_update_time}" )"
+            else
+                _log "The last update of the cache is $(date -j -u -r "${_cache_last_update_time}" +"%Y/%m/%d %H:%M:%S")"
+            fi
         }
     else
         UPDATE_CACHE=false
