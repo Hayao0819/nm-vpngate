@@ -35,7 +35,7 @@ LOADED_CONFIG=()
 
 # Number of attempts in auto mode
 # The initial value is 1, and it increases by 1 for each failure.
-# If it fails, it will try to connect to the next server.
+# If it fails, it will try to connect the next server.
 AUTO_TRY_COUNT=1
 
 # Backup of server list for AUTO MODE
@@ -108,11 +108,12 @@ _script_usage(){
     echo "A script that makes it easy to connect Network Manager to a VPN Gate"
     echo
     echo " General options:"
-    echo "    -a | --auto                Automatically connect to the server with the highest score"
+    echo "    -a | --auto                Automatically connect the server with the highest score"
     echo "    -c | --cli                 Set the mode to CLI"
     echo "    -g | --gtk                 Set thr mode to GTK (GUI)"
     echo "    -l | --limit [number]      Limit the number of automatic connection attempts"
     echo "    -r | --remove              Remove the settings when the connection fails"
+    #echo "    -s | --system              Set the system mode to connect VPN"
     echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
     echo "    -u | --update              Update the cache of server list"
     echo "    -h | --help                Show this help and exit"
@@ -132,7 +133,19 @@ _get_csv_clm(){
 }
 
 #-- Check environment and functions --#
-_check_env(){
+_check_env_common(){
+    type "curl" 1> /dev/null 2>&1 || {
+        _error "Curl is not installed."
+        exit 1
+    }
+
+    type "zenity" 1> /dev/null 2>&1 || {
+        _warn "Zenity is not installed."
+        _warn "You cannnot use GUI mode."
+    }
+}
+
+_check_env_nm(){
     local _exit=0
 
     # Check the number of loaded configuration files
@@ -142,7 +155,7 @@ _check_env(){
     fi
 
     # Check external commands
-    for _cmd in "nmcli" "curl" "systemctl"; do
+    for _cmd in "nmcli" "systemctl"; do
         ! type "${_cmd}" 1> /dev/null 2>&1 && \
             _error "${_cmd} is not installed." && _exit="$((_exit+1))"
     done
@@ -163,9 +176,32 @@ _check_env(){
     return 0
 }
 
+_check_env(){
+    _check_env_common
+    case "$SYSTEM_MODE" in
+        "network-manager")
+            _check_env_nm
+            ;;
+        "scutil")
+            _info "Skipped environment check because of Mac OS"
+            #_check_env_mac
+            ;;
+    esac
+}
+
 #-- Prepare environment --#
 _prepare_env(){
     mkdir -p "${CONFIG_DIR}" "${CACHE_DIR}"
+}
+
+#-- Detect OS --#
+_detect_os(){
+    if type scutil 1> /dev/null 2>&1; then
+        _info "Found scutil command. Your OS may be Mac OS."
+        SYSTEM_MODE="scutil"
+    else
+        SYSTEM_MODE="network-manager"
+    fi
 }
 
 #-- Check and Update server cache --#
@@ -273,7 +309,7 @@ _select_server_cli(){
     SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)" || _select_server_cli
 }
 
-_select_server_gtk(){
+_select_server_zenity(){
     # CSV_VARSのぶんだけリストのカラムを作成
     _log "Configuring graphical user interface ..."
     while read -r _var; do
@@ -311,11 +347,11 @@ _select_server_auto(){
     # Change the argument of the sort command depending on the maximum or minimum value
     case "${AUTO_COND}" in
         "MAX")
-            _log "Connect to the server with the highest ${AUTO_TARGET} value."
+            _log "Connect the server with the highest ${AUTO_TARGET} value."
             _sort_opt=("-n" "-r")
             ;;
         "MIN")
-            _log "Connect to the server with the lowest ${AUTO_TARGET} value."
+            _log "Connect the server with the lowest ${AUTO_TARGET} value."
             _sort_opt=("-n")
             ;;
         *)
@@ -358,7 +394,7 @@ _select_server(){
     else
         case "${MODE}" in
             "GUI")
-                _select_server_gtk
+                _select_server_zenity
                 ;;
             "CLI")
                 _select_server_cli
@@ -417,7 +453,7 @@ _parse_profile_name(){
 }
 
 #-- Set up connection --#
-_setup_vpn_openvpn(){
+_setup_vpn_nm_openvpn(){
     local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
 
     #-- Save ovpn file --#
@@ -430,13 +466,13 @@ _setup_vpn_openvpn(){
     nmcli connection import type openvpn file "${_ovpn_file}"
 }
 
-_setup_vpn_l2tp(){
+_setup_vpn_nm_l2tp(){
     nmcli connection add \
         connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
         connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
 }
 
-_setup_vpn(){
+_setup_vpn_nm(){
     if nmcli -c no con | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
         _warn "${PROFILE_NAME} has been added to the Network Manager"
         _warn "Skip to add it and continue to connent"
@@ -452,7 +488,22 @@ _setup_vpn(){
     esac
 }
 
-#-- Connect to VPN --#
+_setup_vpn_mac(){
+    _error "I dont known how to connect VPN on Mac with CLI"
+}
+
+_setup_vpn(){
+    case "$SYSTEM_MODE" in
+        "network-manager")
+            _setup_vpn_nm
+            ;;
+        "scutil")
+            _setup_vpn_mac
+            ;;
+    esac
+}
+
+#-- Connect VPN --#
 # PROFILE_NAMEのUUIDを返します
 _get_uuid(){
     nmcli -c no con show | sed "1d" | awk "{ if (\$1 == \"${PROFILE_NAME}\"){ print \$2} }"
@@ -564,6 +615,7 @@ for _cfg in "${LOADED_CONFIG[@]}"; do _log "Loaded ${_cfg}"; done
 _prepare(){
     _check_env
     _prepare_env
+    _detect_os
     _check_server_cache
     _get_server_list
     _run_filter
