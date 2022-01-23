@@ -235,6 +235,17 @@ _get_csv_clm(){
     return 1
 }
 
+_base64_decode(){
+    local _isGnu=false
+    base64 --help | grep -q "GNU" || _isGnu=true
+
+    if [[ "${_isGnu}" = true ]]; then
+        base64 -di
+    else
+        base64 -D
+    fi
+}
+
 #-- Check environment and functions --#
 _check_env_common(){
     type "curl" 1> /dev/null 2>&1 || {
@@ -578,7 +589,7 @@ _setup_vpn_nm_openvpn(){
     #-- Save ovpn file --#
     _log "Save OVPN file to ${_ovpn_file}"
     [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
-    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | base64 -di > "${_ovpn_file}"
+    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode > "${_ovpn_file}"
 
     #-- Import OVPN file --#
     _log "Import ${_ovpn_file}"
@@ -613,7 +624,7 @@ _setup_vpn_openvpn(){
     #-- Save ovpn file --#
     _log "Save OVPN file to ${_ovpn_file}"
     [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
-    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | base64 -di > "${_ovpn_file}"
+    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode > "${_ovpn_file}"
 
     #-- Import OVPN file --#
     _log "Import $_ovpn_file"
