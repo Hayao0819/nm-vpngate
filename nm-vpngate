@@ -202,6 +202,16 @@ _get_server_list(){
         _log "Getting server list from ${VPNGATE_CSV} ..."
         readarray -t CSV_SERVERLIST < <(curl -sL "${VPNGATE_CSV}" | grep -v "^\*" | grep -v "^#" | tee "${CACHE_PATH}")
     fi
+
+    local _Line
+    local _Currect=$(tr "," "\n" <<< "$CSV_VARS" | wc -l)
+    for _Line in "${CSV_SERVERLIST[@]}"; do
+        (( "$(tr "," "\n" <<< "$_Line" | wc -l)" == _Currect )) ||{
+            _error "Server list or API config is missing."
+            _error "Please check the Internet connection and API update."
+            exit 1
+        }
+    done
 }
 
 #-- Filter server list --#
