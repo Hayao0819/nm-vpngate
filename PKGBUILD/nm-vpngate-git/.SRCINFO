@@ -11,6 +11,7 @@ pkgbase = nm-vpngate-git
 	depends = networkmanager-openvpn
 	depends = networkmanager-strongswan
 	depends = zenity
+	depends = networkmanager-l2tp
 	source = git+https://github.com/Hayao0819/nm-vpngate.git
 	md5sums = SKIP
 
