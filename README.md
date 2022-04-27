@@ -91,3 +91,6 @@ Some of these can be changed in the configuration file.
 - (FILE) /etc/nm-vpngate.conf ~/.nm-vpngate.conf ~/.config/nm-vpngate.conf  
   Script loads config from them
 
+## Related Project
+
+- [sarukiti/vpngate_droid](https://github.com/sarukiti/vpngate_droid) VPN Gate for Android
