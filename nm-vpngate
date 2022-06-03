@@ -644,7 +644,7 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-parse_arg SHORT="acght:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:,gui:" -- "$@" || exit 1
+parse_arg SHORT="acghqt:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:,gui:,qt" -- "$@" || exit 1
 eval set -- "${OPTRET[@]}"
 unset OPTRET
 
@@ -653,6 +653,7 @@ while true; do
         -a | --auto    ) MODE="AUTO"                 ; shift 1 ;;
         -c | --cli     ) MODE="CLI"                  ; shift 1 ;;
         -g | --gtk     ) MODE="GUI-ZENITY"           ; shift 1 ;;
+        -q | --qt      ) MODE="GUI-KDIALOG"          ; shift 1 ;;
         -t | --type    ) VPN_TYPE="${2}"             ; shift 2 ;;
         -u | --update  ) UPDATE_CACHE=true           ; shift 1 ;;
              --country ) TargetCountryShort="^${2}$" ; shift 2 ;;
