@@ -351,7 +351,7 @@ _select_server_zenity(){
     done
 
     # OpenVPN_ConfigData_Base64を非表示にする
-    _args+=("--hide-column" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+    _args+=("--hide-column" "$(_get_csv_clm "OpenVPN_ConfigData_Base64")")
 
     # Zenityを実行する
     if ! SelectedVPNName="$(zenity --list --title="${APP_NAME}" --text="Please select server that you want to connect" "${_args[@]}")"; then
