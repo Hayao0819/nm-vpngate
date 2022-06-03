@@ -365,6 +365,12 @@ _select_server_zenity(){
         exit 1
     fi
 }
+
+_select_server_kdialog(){
+    echo "There is nothing!"
+    return 0
+}
+
 _select_server_name(){
     # Name check
     [[ -n "${SelectedVPNName-""}" ]] || {
@@ -430,6 +436,9 @@ _select_server(){
         case "${MODE}" in
             "GUI")
                 _select_server_zenity
+                ;;
+            "KDIALOG")
+                _select_server_kdialog
                 ;;
             "CLI")
                 _select_server_cli
