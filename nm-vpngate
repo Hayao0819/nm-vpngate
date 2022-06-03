@@ -60,7 +60,7 @@ AUTO_CSV_SERVERLIST=()
 _log(){   echo "[ LOG ]: ${1}" >&2; }
 _msg(){
     echo "[${1}]: ${2}" >&2
-    [[ "${MODE}" = "GUI" ]] || return 0
+    [[ "${MODE}" = "GUI-"* ]] || return 0
     #zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
 }
 _info(){  _msg " INFO" "${1}"; }
@@ -82,7 +82,9 @@ _script_usage(){
     echo " General options:"
     echo "    -a | --auto                Automatically connect the server with the highest score"
     echo "    -c | --cli                 Set the mode to CLI"
-    echo "    -g | --gtk                 Set thr mode to GTK (GUI)"
+    echo "    -g | --gtk                 Set thr mode to GTK (GUI-ZENITY)"
+    echo "    -q | --qt                  Set thr mode to Qt (GUI-KDIALOG)"
+    echo "         --gui [type]          Set the mode of GUI (ZENITY, KDIALOG)"
     echo "    -l | --limit [number]      Limit the number of automatic connection attempts"
     echo "    -r | --remove              Remove the settings when the connection fails"
     #echo "    -s | --system              Set the system mode to connect VPN"
@@ -139,7 +141,7 @@ _check_env_common(){
 
     type "zenity" 1> /dev/null 2>&1 || {
         _warn "Zenity is not installed."
-        _warn "You cannnot use GUI mode."
+        _warn "You cannnot use GUI-ZENITY mode."
     }
 }
 
@@ -345,6 +347,8 @@ _select_server_cli(){
 }
 
 _select_server_zenity(){
+    local _args=() _server
+
     # CSV_VARSのぶんだけリストのカラムを作成
     _log "Configuring graphical user interface ..."
     while read -r _var; do
@@ -365,6 +369,35 @@ _select_server_zenity(){
         exit 1
     fi
 }
+
+# Todo: GUIのテキスト表示を見やすくする
+_select_server_kdialog(){
+    local _args=() _server _gui
+
+    # タイトル等を設定
+    _args+=(--title "${APP_NAME}" --radiolist)
+
+    # 質問を設定
+    _args+=("Please select server that you want to connect")
+
+    # kdialogのオプションを作成
+    _log "Configuring graphical user interface ..."
+    for _server in "${CSV_SERVERLIST[@]}"; do
+        # 似たようなものを2回追加するのはミスではありません
+        _args+=("$(cut -d "," -f 1 <<< "${_server}")") # キー（ここの値がSelecedVPNNameに代入されます）
+        _args+=("$(cut -d "," -f 1,2,7 <<< "${_server}")") # ラベル(ここの値がGUIに表示されます) 
+        _args+=("off") # デフォルト動作（off固定）
+    done
+
+    # kdialogを実行する
+    if ! SelectedVPNName="$(kdialog "${_args[@]}")"; then
+        _log "kdialog has terminated abnormally."
+        exit 1
+    fi
+
+    return 0
+}
+
 _select_server_name(){
     # Name check
     [[ -n "${SelectedVPNName-""}" ]] || {
@@ -424,12 +457,18 @@ _select_server_auto(){
     SelectedVPNName="$(cut -d "," -f 1 <<< "${CSV_SERVERLIST[0]}")"
 }
 _select_server(){
+
+    # すべての_select_server_* 関数はSelectedVPNNameを定義してください。
+
     if [[ "${AUTO_SETUP=false}" = true ]]; then
         _select_server_auto
     else
         case "${MODE}" in
-            "GUI")
+            "GUI-ZENITY")
                 _select_server_zenity
+                ;;
+            "GUI-KDIALOG")
+                _select_server_kdialog
                 ;;
             "CLI")
                 _select_server_cli
@@ -444,6 +483,14 @@ _select_server(){
                 _error "${MODE} is not correct" 1
                 ;;
         esac
+    fi
+
+    # Check SelectedVPNName
+    if [[ -z "${SelectedVPNName-""}" ]]; then
+        _error "No server was selected. It is a bug of nm-vpngate."
+        _error "Please report it to developer."
+        _error "To: Yamada Hayao <hayao@fascode.net>"
+        exit 1
     fi
 }
 
@@ -635,7 +682,7 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-parse_arg SHORT="acght:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:" -- "$@" || exit 1
+parse_arg SHORT="acghqt:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:,gui:,qt" -- "$@" || exit 1
 eval set -- "${OPTRET[@]}"
 unset OPTRET
 
@@ -643,7 +690,8 @@ while true; do
     case "${1}" in
         -a | --auto    ) MODE="AUTO"                 ; shift 1 ;;
         -c | --cli     ) MODE="CLI"                  ; shift 1 ;;
-        -g | --gtk     ) MODE="GUI"                  ; shift 1 ;;
+        -g | --gtk     ) MODE="GUI-ZENITY"           ; shift 1 ;;
+        -q | --qt      ) MODE="GUI-KDIALOG"          ; shift 1 ;;
         -t | --type    ) VPN_TYPE="${2}"             ; shift 2 ;;
         -u | --update  ) UPDATE_CACHE=true           ; shift 1 ;;
              --country ) TargetCountryShort="^${2}$" ; shift 2 ;;
@@ -657,6 +705,16 @@ while true; do
             SelectedVPNName="${2}"
             MODE="NAME"
             shift 2
+            ;;
+        --gui          )
+            case "${2^^}" in
+                "ZENITY")
+                    MODE="GUI-ZENITY"
+                    ;;
+                "KDIALOG")
+                    MODE="GUI-KDIALOG"
+                    ;;
+            esac
             ;;
         *)
             _error "Argument exception error '${1}'"
@@ -674,6 +732,11 @@ for _cfg in "${LOADED_CONFIG[@]}"; do _log "Loaded ${_cfg}"; done
     _stop_vpn
     exit 0
 }
+
+#-- Legacy config --#
+if [[ "$MODE" = "GUI" ]]; then
+    MODE="GUI-ZENITY"
+fi
 
 #-- Run --#
 _prepare(){
