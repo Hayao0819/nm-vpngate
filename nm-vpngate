@@ -347,6 +347,8 @@ _select_server_cli(){
 }
 
 _select_server_zenity(){
+    local _args=() _server
+
     # CSV_VARSのぶんだけリストのカラムを作成
     _log "Configuring graphical user interface ..."
     while read -r _var; do
@@ -368,8 +370,31 @@ _select_server_zenity(){
     fi
 }
 
+# Todo: GUIのテキスト表示を見やすくする
 _select_server_kdialog(){
-    echo "There is nothing!"
+    local _args=() _server _gui
+
+    # タイトル等を設定
+    _args+=(--title "${APP_NAME}" --radiolist)
+
+    # 質問を設定
+    _args+=("Please select server that you want to connect")
+
+    # kdialogのオプションを作成
+    _log "Configuring graphical user interface ..."
+    for _server in "${CSV_SERVERLIST[@]}"; do
+        # 似たようなものを2回追加するのはミスではありません
+        _args+=("$(cut -d "," -f 1 <<< "${_server}")") # キー（ここの値がSelecedVPNNameに代入されます）
+        _args+=("$(cut -d "," -f 1,2,7 <<< "${_server}")") # ラベル(ここの値がGUIに表示されます) 
+        _args+=("off") # デフォルト動作（off固定）
+    done
+
+    # kdialogを実行する
+    if ! SelectedVPNName="$(kdialog "${_args[@]}")"; then
+        _log "kdialog has terminated abnormally."
+        exit 1
+    fi
+
     return 0
 }
 
@@ -462,8 +487,7 @@ _select_server(){
 
     # Check SelectedVPNName
     if [[ -z "${SelectedVPNName-""}" ]]; then
-        _error "No server was selected."
-        _error "It is a bug of nm-vpngate."
+        _error "No server was selected. It is a bug of nm-vpngate."
         _error "Please report it to developer."
         _error "To: Yamada Hayao <hayao@fascode.net>"
         exit 1
