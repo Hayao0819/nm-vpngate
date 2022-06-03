@@ -644,7 +644,7 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-parse_arg SHORT="acght:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:" -- "$@" || exit 1
+parse_arg SHORT="acght:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:,gui:" -- "$@" || exit 1
 eval set -- "${OPTRET[@]}"
 unset OPTRET
 
@@ -666,6 +666,16 @@ while true; do
             SelectedVPNName="${2}"
             MODE="NAME"
             shift 2
+            ;;
+        --gui          )
+            case "${2^^}" in
+                "ZENITY")
+                    MODE="GUI-ZENITY"
+                    ;;
+                "KDIALOG")
+                    MODE="GUI-KDIALOG"
+                    ;;
+            esac
             ;;
         *)
             _error "Argument exception error '${1}'"
