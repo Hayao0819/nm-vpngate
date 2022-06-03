@@ -197,7 +197,11 @@ _check_env(){
 
 #-- Prepare environment --#
 _prepare_env(){
+    # Create directories
     mkdir -p "${CONFIG_DIR}" "${CACHE_DIR}"
+
+    # Set MODE variable to Uppercase
+    MODE="${MODE^^}"
 }
 
 #-- Detect OS --#
