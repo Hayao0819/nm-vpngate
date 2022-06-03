@@ -240,7 +240,6 @@ _check_server_cache(){
     else
         UPDATE_CACHE=false
     fi
-    exit 0
     return 0
 }
 
