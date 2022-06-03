@@ -10,6 +10,12 @@
 # 
 set -Eeu -o pipefail
 
+# Load shell script library
+# shellcheck source=/dev/null
+source /dev/stdin < <(
+    fasbashlib -s -x "v0.2.2" 2> /dev/null || curl -sL "https://github.com/Hayao0819/FasBashLib/releases/download/v0.2.2/fasbashlib-snake.sh"
+)
+
 # The directory where the script is located
 script_path="$(cd "$(dirname "${0}")" || exit 1 ; pwd)"
 
@@ -68,142 +74,6 @@ _error(){
 #test -t 0 || MODE="GUI" && MODE="CLI"
 
 #-- Funcions -#
-
-# 質問を行う関数
-# Returns only the selected result to standard output
-# ask_question -n -d <デフォルト値> -p <質問文> <選択肢1> <選択肢2> ...
-# -n: Return with number
-ask_question(){
-    local arg OPTARG OPTIND _default="" _choice_list _count _choice _question _mark _number=false _returnint _returnstr
-    while getopts "ad:p:n" arg; do
-        case "${arg}" in
-            d) _default="${OPTARG}" ;;
-            p) _question="${OPTARG}" ;;
-            n) _number=true ;;
-            *) exit 1 ;;
-        esac
-    done
-    shift "$((OPTIND - 1))" && _choice_list=("${@}") _digit="${##}"
-    (( ${#_choice_list[@]} < 0 )) && echo "An exception error has occurred." >&2 && exit 1
-    (( ${#_choice_list[@]} <= 1 )) && _returnint="${_returnint:="1"}" _returnstr="${_returnstr:="${_choice_list[*]}"}"
-    [[ -n "${_question-""}" ]] && echo "   ${_question}" >&2
-    for (( _count=1; _count<=${#_choice_list[@]}; _count++)); do
-        _choice="${_choice_list[$(( _count - 1 ))]}" _mark=" "
-        { [[ ! "${_default}" = "" ]] && [[ "${_choice}" = "${_default}" ]]; } && _mark="*"
-        printf " ${_mark} %${_digit}d: ${_choice}\n" "${_count}" >&2
-    done
-    echo -n "   (1 ~ ${#_choice_list[@]}) > " >&2 && read -r _input
-    { [[ -z "${_input-""}" ]] && [[ -n "${_default-""}" ]]; } && _returnint="${_returnint:="0"}" _returnstr="${_returnstr:="${_default}"}"
-    { printf "%s" "${_input}" | grep -qE "^[0-9]+$" && (( 1 <= _input)) && (( _input <= ${#_choice_list[@]} )); } && _returnint="${_returnint:="${_input}"}" _returnstr="${_returnstr:="${_choice_list[$(( _input - 1 ))]}"}"
-    for (( i=0; i <= ${#_choice_list[@]} - 1 ;i++ )); do
-        [[ "${_choice_list["${i}"],,}" = "${_input,,}" ]] && _returnint="${_returnint:="$(( i + 1 ))"}" _returnstr="${_returnstr:="${_choice_list["${i}"]}"}"
-    done
-    { [[ "${_number}"  = true ]] && [[ -n "${_returnint+SET}" ]]; } && { echo "${_returnint}" && return 0 ;}
-    { [[ "${_number}" = false ]] && [[ -n "${_returnstr+SET}" ]]; } && { echo "${_returnstr}" && return 0 ;}
-    return 1
-}
-
-# parseopt LONG="<GNU getopt's long option>" SHORT="<GNU getopt's short option>" -- "${@}"
-# This function does not support the option argument (Example: 'a::')
-# It will return an array named OPTRET
-parseopt(){
-  local _Arg _Chr _Cnt # Temporary variable for loop
-  local _Long=() _LongWithArg=() _Short=() _ShortWithArg=() 
-  local _OutArg=() _NoArg=() # Parsed array
-  local _ParseFinished=false
-
-  # 引数一覧を取得
-  for _Arg in "${@}"; do
-    local _TempArray=()
-    case "${_Arg}" in
-      "LONG="* )
-        readarray -t _TempArray < <(tr -d "\"" <<< "${_Arg#LONG=}" | tr "," "\n")
-        for _Chr in "${_TempArray[@]}"; do
-          if [[ "${_Chr}" = *":" ]]; then
-            _LongWithArg+=("${_Chr%":"}")
-          else
-            _Long+=("${_Chr}")
-          fi
-        done
-        shift 1
-      ;;
-      "SHORT="*)
-        readarray -t _TempArray < <(tr -d "\"" <<< "${_Arg#SHORT=}" | grep -o .)
-        for (( _Cnt=0; _Cnt<= "${#_TempArray[@]}" - 1; _Cnt++ )); do
-            if [[ "${_TempArray["$(( _Cnt + 1))"]-""}" = ":" ]]; then
-              _ShortWithArg+=("${_TempArray["${_Cnt}"]}")
-              _Cnt=$(( _Cnt + 1 ))
-            else
-              _Short+=("${_TempArray["${_Cnt}"]}")
-            fi
-        done
-        shift 1
-      ;;
-      "--")
-        shift 1
-        break
-      ;;
-    esac
-  done
-  
-  # Parse actually argument
-  while (( "$#" > 0 )); do
-
-    if [[ "${1}" = "--" ]]; then
-      shift 1
-      _NoArg+=("${@}")
-      shift "$#"
-      _ParseFinisheda=true
-      break
-    elif [[ "${1}" = "--"* ]]; then # Long option
-      # Long option with argument
-      if printf "%s\n" "${_LongWithArg[@]}" | grep -qx "${1#--}"; then
-        # Check argument
-        if [[ "${2}" = "-"* ]]; then
-          _error "${1} の引数が指定されていません"
-          return 2
-        else
-          _OutArg+=("${1}" "${2}")
-          shift 2
-        fi
-      elif printf "%s\n" "${_Long[@]}" | grep -qx "${1#--}"; then
-        _OutArg+=("${1}")
-        shift 1
-      else
-        _error "${1} は不正なオプションです。-hで使い方を確認してください。"
-        return 1
-      fi
-    elif [[ "${1}" = "-"* ]]; then
-      local _Shift=0 # 連続したショートオプションの解析後にshiftする数
-      while read -r _Chr; do # 引数を1文字ずつループ
-        if printf "%s\n" "${_ShortWithArg[@]}" | grep -qx "${_Chr}"; then
-          # 連続したショートオプションの場合、自分が最後かどうか
-          if [[ "${1}" = *"${_Chr}" ]] && [[ ! "${2}" = *"-" ]]; then
-            _OutArg+=("-${_Chr}" "${2}")
-            _Shift=2
-          else
-            _error "-${_Che} の引数が指定されていません"
-            return 2
-          fi
-        elif printf "%s\n" "${_Short[@]}" | grep -qx "${_Chr}"; then
-          _OutArg+=("-${_Chr}")
-          _Shift=1
-        else
-          _error "-${_Chr} は不正なオプションです。-hで使い方を確認してください。"
-          return 1
-        fi
-      done < <(grep -o . <<< "${1#-}")
-      shift "${_Shift}"
-    else
-      _NoArg+=("${1}")
-      shift 1
-    fi
-  done
-
-  OPTRET=("${_OutArg[@]}" -- "${_NoArg[@]}")  
-}
-
-
 _script_usage(){
     echo "usage ${0} [options]"
     echo
@@ -465,7 +335,7 @@ _select_server_cli(){
         #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
         _args+=("$(cut -d "," -f 1,2,7 <<< "${_server}")")
     done
-    SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)" || _select_server_cli
+    SelectedVPNName="$(choice -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)" || _select_server_cli
 }
 
 _select_server_zenity(){
@@ -759,7 +629,7 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-parseopt SHORT="acght:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:" -- "$@" || exit 1
+parse_arg SHORT="acght:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:" -- "$@" || exit 1
 eval set -- "${OPTRET[@]}"
 unset OPTRET
 
