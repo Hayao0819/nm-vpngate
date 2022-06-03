@@ -228,16 +228,19 @@ _check_server_cache(){
         _cache_last_update_time="$(_dater "${CACHE_PATH}")"
         _cache_elapsed_time="$(( _current_time - _cache_last_update_time ))"
 
-        { (( _cache_elapsed_time > KEEP_CACHE )) || UPDATE_CACHE=true; } && {
+        if (( _cache_elapsed_time > KEEP_CACHE )); then
+            UPDATE_CACHE=true
+        else
             if date --help 2> /dev/null | grep -q "GNU"; then
                 _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "${_cache_last_update_time}" )"
             else
                 _log "The last update of the cache is $(date -j -u -r "${_cache_last_update_time}" +"%Y/%m/%d %H:%M:%S")"
             fi
-        }
+        fi
     else
         UPDATE_CACHE=false
     fi
+    exit 0
     return 0
 }
 
