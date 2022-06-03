@@ -432,6 +432,9 @@ _select_server_auto(){
     SelectedVPNName="$(cut -d "," -f 1 <<< "${CSV_SERVERLIST[0]}")"
 }
 _select_server(){
+
+    # すべての_select_server_* 関数はSelectedVPNNameを定義してください。
+
     if [[ "${AUTO_SETUP=false}" = true ]]; then
         _select_server_auto
     else
@@ -455,6 +458,15 @@ _select_server(){
                 _error "${MODE} is not correct" 1
                 ;;
         esac
+    fi
+
+    # Check SelectedVPNName
+    if [[ -z "${SelectedVPNName-""}" ]]; then
+        _error "No server was selected."
+        _error "It is a bug of nm-vpngate."
+        _error "Please report it to developer."
+        _error "To: Yamada Hayao <hayao@fascode.net>"
+        exit 1
     fi
 }
 
