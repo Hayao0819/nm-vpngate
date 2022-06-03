@@ -60,7 +60,7 @@ AUTO_CSV_SERVERLIST=()
 _log(){   echo "[ LOG ]: ${1}" >&2; }
 _msg(){
     echo "[${1}]: ${2}" >&2
-    [[ "${MODE}" = "GUI" ]] || return 0
+    [[ "${MODE}" = "GUI-"* ]] || return 0
     #zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
 }
 _info(){  _msg " INFO" "${1}"; }
@@ -139,7 +139,7 @@ _check_env_common(){
 
     type "zenity" 1> /dev/null 2>&1 || {
         _warn "Zenity is not installed."
-        _warn "You cannnot use GUI mode."
+        _warn "You cannnot use GUI-ZENITY mode."
     }
 }
 
@@ -434,10 +434,10 @@ _select_server(){
         _select_server_auto
     else
         case "${MODE}" in
-            "GUI")
+            "GUI-ZENITY")
                 _select_server_zenity
                 ;;
-            "KDIALOG")
+            "GUI-KDIALOG")
                 _select_server_kdialog
                 ;;
             "CLI")
@@ -652,7 +652,7 @@ while true; do
     case "${1}" in
         -a | --auto    ) MODE="AUTO"                 ; shift 1 ;;
         -c | --cli     ) MODE="CLI"                  ; shift 1 ;;
-        -g | --gtk     ) MODE="GUI"                  ; shift 1 ;;
+        -g | --gtk     ) MODE="GUI-ZENITY"           ; shift 1 ;;
         -t | --type    ) VPN_TYPE="${2}"             ; shift 2 ;;
         -u | --update  ) UPDATE_CACHE=true           ; shift 1 ;;
              --country ) TargetCountryShort="^${2}$" ; shift 2 ;;
@@ -683,6 +683,11 @@ for _cfg in "${LOADED_CONFIG[@]}"; do _log "Loaded ${_cfg}"; done
     _stop_vpn
     exit 0
 }
+
+#-- Legacy config --#
+if [[ "$MODE" = "GUI" ]]; then
+    MODE="GUI-ZENITY"
+fi
 
 #-- Run --#
 _prepare(){
