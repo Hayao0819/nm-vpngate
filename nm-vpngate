@@ -232,7 +232,7 @@ _check_server_cache(){
             UPDATE_CACHE=true
         else
             if date --help 2> /dev/null | grep -q "GNU"; then
-                _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "${_cache_last_update_time}" )"
+                _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "@${_cache_last_update_time}" )"
             else
                 _log "The last update of the cache is $(date -j -u -r "${_cache_last_update_time}" +"%Y/%m/%d %H:%M:%S")"
             fi
