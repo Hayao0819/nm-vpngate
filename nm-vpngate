@@ -11,7 +11,7 @@
 set -Eeu -o pipefail
 
 # The directory where the script is located
-script_path="$( cd -P "$( dirname "$(readlink -f "${0}")" )" && pwd )"
+script_path="$(cd "$(dirname "${0}")" || exit 1 ; pwd)"
 
 # CSV obtained from API will be assigned to this array line by line
 CSV_SERVERLIST=()
@@ -35,7 +35,7 @@ LOADED_CONFIG=()
 
 # Number of attempts in auto mode
 # The initial value is 1, and it increases by 1 for each failure.
-# If it fails, it will try to connect to the next server.
+# If it fails, it will try to connect the next server.
 AUTO_TRY_COUNT=1
 
 # Backup of server list for AUTO MODE
@@ -53,8 +53,9 @@ AUTO_CSV_SERVERLIST=()
 #-- Message functions --#
 _log(){   echo "[ LOG ]: ${1}" >&2; }
 _msg(){
-    [[ ! "${MODE}" = "GUI" ]] && echo "[${1}]: ${2}" >&2 && return 0
-    zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
+    echo "[${1}]: ${2}" >&2
+    [[ ! "${MODE}" = "GUI" ]] && return 0
+    #zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
 }
 _info(){  _msg " INFO" "${1}"; }
 _warn(){  echo "[ WARN]: ${1}" >&2; }
@@ -102,17 +103,119 @@ ask_question(){
     return 1
 }
 
+# parseopt LONG="<GNU getopt's long option>" SHORT="<GNU getopt's short option>" -- "${@}"
+# This function does not support the option argument (Example: 'a::')
+# It will return an array named OPTRET
+parseopt(){
+  local _Arg _Chr _Cnt # Temporary variable for loop
+  local _Long=() _LongWithArg=() _Short=() _ShortWithArg=() 
+  local _OutArg=() _NoArg=() # Parsed array
+  local _ParseFinished=false
+
+  # 引数一覧を取得
+  for _Arg in "${@}"; do
+    local _TempArray=()
+    case "${_Arg}" in
+      "LONG="* )
+        readarray -t _TempArray < <(tr -d "\"" <<< "${_Arg#LONG=}" | tr "," "\n")
+        for _Chr in "${_TempArray[@]}"; do
+          if [[ "${_Chr}" = *":" ]]; then
+            _LongWithArg+=("${_Chr%":"}")
+          else
+            _Long+=("${_Chr}")
+          fi
+        done
+        shift 1
+      ;;
+      "SHORT="*)
+        readarray -t _TempArray < <(tr -d "\"" <<< "${_Arg#SHORT=}" | grep -o .)
+        for (( _Cnt=0; _Cnt<= "${#_TempArray[@]}" - 1; _Cnt++ )); do
+            if [[ "${_TempArray["$(( _Cnt + 1))"]-""}" = ":" ]]; then
+              _ShortWithArg+=("${_TempArray["${_Cnt}"]}")
+              _Cnt=$(( _Cnt + 1 ))
+            else
+              _Short+=("${_TempArray["${_Cnt}"]}")
+            fi
+        done
+        shift 1
+      ;;
+      "--")
+        shift 1
+        break
+      ;;
+    esac
+  done
+  
+  # Parse actually argument
+  while (( "$#" > 0 )); do
+
+    if [[ "${1}" = "--" ]]; then
+      shift 1
+      _NoArg+=("${@}")
+      shift "$#"
+      _ParseFinisheda=true
+      break
+    elif [[ "${1}" = "--"* ]]; then # Long option
+      # Long option with argument
+      if printf "%s\n" "${_LongWithArg[@]}" | grep -qx "${1#--}"; then
+        # Check argument
+        if [[ "${2}" = "-"* ]]; then
+          _error "${1} の引数が指定されていません"
+          return 2
+        else
+          _OutArg+=("${1}" "${2}")
+          shift 2
+        fi
+      elif printf "%s\n" "${_Long[@]}" | grep -qx "${1#--}"; then
+        _OutArg+=("${1}")
+        shift 1
+      else
+        _error "${1} は不正なオプションです。-hで使い方を確認してください。"
+        return 1
+      fi
+    elif [[ "${1}" = "-"* ]]; then
+      local _Shift=0 # 連続したショートオプションの解析後にshiftする数
+      while read -r _Chr; do # 引数を1文字ずつループ
+        if printf "%s\n" "${_ShortWithArg[@]}" | grep -qx "${_Chr}"; then
+          # 連続したショートオプションの場合、自分が最後かどうか
+          if [[ "${1}" = *"${_Chr}" ]] && [[ ! "${2}" = *"-" ]]; then
+            _OutArg+=("-${_Chr}" "${2}")
+            _Shift=2
+          else
+            _error "-${_Che} の引数が指定されていません"
+            return 2
+          fi
+        elif printf "%s\n" "${_Short[@]}" | grep -qx "${_Chr}"; then
+          _OutArg+=("-${_Chr}")
+          _Shift=1
+        else
+          _error "-${_Chr} は不正なオプションです。-hで使い方を確認してください。"
+          return 1
+        fi
+      done < <(grep -o . <<< "${1#-}")
+      shift "${_Shift}"
+    else
+      _NoArg+=("${1}")
+      shift 1
+    fi
+  done
+
+  OPTRET=("${_OutArg[@]}" -- "${_NoArg[@]}")  
+}
+
+
 _script_usage(){
     echo "usage ${0} [options]"
     echo
     echo "A script that makes it easy to connect Network Manager to a VPN Gate"
     echo
     echo " General options:"
-    echo "    -a | --auto                Automatically connect to the server with the highest score"
+    echo "    -a | --auto                Automatically connect the server with the highest score"
     echo "    -c | --cli                 Set the mode to CLI"
     echo "    -g | --gtk                 Set thr mode to GTK (GUI)"
     echo "    -l | --limit [number]      Limit the number of automatic connection attempts"
     echo "    -r | --remove              Remove the settings when the connection fails"
+    #echo "    -s | --system              Set the system mode to connect VPN"
     echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
     echo "    -u | --update              Update the cache of server list"
     echo "    -h | --help                Show this help and exit"
@@ -131,8 +234,46 @@ _get_csv_clm(){
     return 1
 }
 
+_base64_decode(){
+    local _isGnu=false
+    base64 --help | grep -q "GNU" && _isGnu=true
+
+    if [[ "${_isGnu}" = true ]]; then
+        base64 -di
+    else
+        base64 -D
+    fi
+}
+
+# _dater <path>
+_dater(){
+    local _isGnu=false
+    date --help 2> /dev/null | grep -q "GNU" && _isGnu=true
+
+    if [[ "$_isGnu" = true ]]; then
+        date +%s -r "$1"
+    else
+        {
+            eval "$(stat -s "$1")"
+            echo "$st_mtime"
+        }
+    fi
+}
+
 #-- Check environment and functions --#
-_check_env(){
+_check_env_common(){
+    type "curl" 1> /dev/null 2>&1 || {
+        _error "Curl is not installed."
+        exit 1
+    }
+
+    type "zenity" 1> /dev/null 2>&1 || {
+        _warn "Zenity is not installed."
+        _warn "You cannnot use GUI mode."
+    }
+}
+
+_check_env_nm(){
     local _exit=0
 
     # Check the number of loaded configuration files
@@ -142,7 +283,7 @@ _check_env(){
     fi
 
     # Check external commands
-    for _cmd in "nmcli" "curl" "systemctl"; do
+    for _cmd in "nmcli" "systemctl"; do
         ! type "${_cmd}" 1> /dev/null 2>&1 && \
             _error "${_cmd} is not installed." && _exit="$((_exit+1))"
     done
@@ -163,9 +304,48 @@ _check_env(){
     return 0
 }
 
+_check_env_openvpn(){
+    # Currently, there is nothing to do
+    true
+}
+
+_check_env(){
+    _check_env_common
+    case "$SYSTEM_MODE" in
+        "network-manager")
+            _check_env_nm
+            ;;
+        "openvpn")
+            _check_env_openvpn
+            ;;
+        "mac")
+            _info "Skipped environment check because of Mac OS"
+            #_check_env_mac
+            ;;
+    esac
+}
+
 #-- Prepare environment --#
 _prepare_env(){
     mkdir -p "${CONFIG_DIR}" "${CACHE_DIR}"
+}
+
+#-- Detect OS --#
+_detect_os(){
+    if systemctl is-active NetworkManager 1> /dev/null 2>&1; then
+        _info "Network Manager has been actived."
+        SYSTEM_MODE="network-manager"
+    elif  type openvpn 1> /dev/null 2>&1; then
+        _info "Found openvpn command. Use it to connect VPN."
+        SYSTEM_MODE="openvpn"
+    elif type scutil 1> /dev/null 2>&1; then
+        _info "Found scutil command. Your OS may be Mac OS."
+        SYSTEM_MODE="mac"
+
+        # mac does not support yet
+        _error "Sorry, Mac OS does not support yet."
+        exit 1
+    fi
 }
 
 #-- Check and Update server cache --#
@@ -175,11 +355,15 @@ _check_server_cache(){
     local _current_time _cache_last_update_time _cache_elapsed_time
     if [[ -f "${CACHE_PATH}" ]]; then
         _current_time="$(date +%s)" 
-        _cache_last_update_time="$(date +%s -r "${CACHE_PATH}")"
+        _cache_last_update_time="$(_dater "${CACHE_PATH}")"
         _cache_elapsed_time="$(( _current_time - _cache_last_update_time ))"
 
-        (( _cache_elapsed_time > KEEP_CACHE )) && UPDATE_CACHE=true && {
-            _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "${_cache_last_update_time}" )"
+        { (( _cache_elapsed_time > KEEP_CACHE )) || UPDATE_CACHE=true; } && {
+            if date --help 2> /dev/null | grep -q "GNU"; then
+                _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "${_cache_last_update_time}" )"
+            else
+                _log "The last update of the cache is $(date -j -u -r "${_cache_last_update_time}" +"%Y/%m/%d %H:%M:%S")"
+            fi
         }
     else
         UPDATE_CACHE=false
@@ -284,7 +468,7 @@ _select_server_cli(){
     SelectedVPNName="$(ask_question -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)" || _select_server_cli
 }
 
-_select_server_gtk(){
+_select_server_zenity(){
     # CSV_VARSのぶんだけリストのカラムを作成
     _log "Configuring graphical user interface ..."
     while read -r _var; do
@@ -322,11 +506,11 @@ _select_server_auto(){
     # Change the argument of the sort command depending on the maximum or minimum value
     case "${AUTO_COND}" in
         "MAX")
-            _log "Connect to the server with the highest ${AUTO_TARGET} value."
+            _log "Connect the server with the highest ${AUTO_TARGET} value."
             _sort_opt=("-n" "-r")
             ;;
         "MIN")
-            _log "Connect to the server with the lowest ${AUTO_TARGET} value."
+            _log "Connect the server with the lowest ${AUTO_TARGET} value."
             _sort_opt=("-n")
             ;;
         *)
@@ -369,7 +553,7 @@ _select_server(){
     else
         case "${MODE}" in
             "GUI")
-                _select_server_gtk
+                _select_server_zenity
                 ;;
             "CLI")
                 _select_server_cli
@@ -428,26 +612,26 @@ _parse_profile_name(){
 }
 
 #-- Set up connection --#
-_setup_vpn_openvpn(){
+_setup_vpn_nm_openvpn(){
     local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
 
     #-- Save ovpn file --#
     _log "Save OVPN file to ${_ovpn_file}"
     [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
-    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | base64 -di > "${_ovpn_file}"
+    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode > "${_ovpn_file}"
 
     #-- Import OVPN file --#
     _log "Import ${_ovpn_file}"
     nmcli connection import type openvpn file "${_ovpn_file}"
 }
 
-_setup_vpn_l2tp(){
+_setup_vpn_nm_l2tp(){
     nmcli connection add \
         connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
         connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
 }
 
-_setup_vpn(){
+_setup_vpn_nm(){
     if nmcli -c no con | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
         _warn "${PROFILE_NAME} has been added to the Network Manager"
         _warn "Skip to add it and continue to connent"
@@ -463,13 +647,43 @@ _setup_vpn(){
     esac
 }
 
-#-- Connect to VPN --#
+_setup_vpn_openvpn(){
+    local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
+
+    #-- Save ovpn file --#
+    _log "Save OVPN file to ${_ovpn_file}"
+    [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
+    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode > "${_ovpn_file}"
+
+    #-- Import OVPN file --#
+    _log "Import $_ovpn_file"
+}
+
+_setup_vpn_mac(){
+    _error "I dont known how to connect VPN on Mac with CLI"
+}
+
+_setup_vpn(){
+    case "$SYSTEM_MODE" in
+        "network-manager")
+            _setup_vpn_nm
+            ;;
+        "openvpn")
+            _setup_vpn_openvpn
+            ;;
+        "mac")
+            _setup_vpn_mac
+            ;;
+    esac
+}
+
+#-- Connect VPN --#
 # PROFILE_NAMEのUUIDを返します
 _get_uuid(){
     nmcli -c no con show | sed "1d" | awk "{ if (\$1 == \"${PROFILE_NAME}\"){ print \$2} }"
 }
 
-_connect_vpn(){
+_connect_vpn_nm(){
     local _exit=0
 
     # すでに接続されているか確認
@@ -507,6 +721,23 @@ _connect_vpn(){
     fi
 }
 
+_connect_vpn_openvpn(){
+    local _ovpn_file="$CONFIG_DIR/$PROFILE_NAME.ovpn"
+    test -e "$_ovpn_file" || { _error "$PROFILE_NAME was not found."; return 1; }
+    openvpn --config "$_ovpn_file"
+}
+
+_connect_vpn(){
+    case "$SYSTEM_MODE" in
+        "network-manager")
+            _connect_vpn_nm
+            ;;
+        "openvpn")
+            _connect_vpn_openvpn
+            ;;
+    esac
+}
+
 #-- Stop VPN --#
 # 
 _stop_vpn(){
@@ -528,12 +759,9 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-OPTS=("a" "c" "g" "h" "t:" "u" "l:" "r" "n:") OPTL=("auto" "cli" "gtk" "type:" "help" "nocache" "country:" "update" "limit:" "remove" "stop" "name:")
-GETOPT=(-o "$(printf "%s," "${OPTS[@]}")" -l "$(printf "%s," "${OPTL[@]}")" -- "${@}")
-getopt -Q "${GETOPT[@]}" || exit 1 # 引数エラー判定
-readarray -t OPT < <(getopt "${GETOPT[@]}") # 配列に代入
-eval set -- "${OPT[@]}"
-unset OPT OPTS OPTL DEFAULT_ARGUMENT GETOPT
+parseopt SHORT="acght:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:" -- "$@" || exit 1
+eval set -- "${OPTRET[@]}"
+unset OPTRET
 
 while true; do
     case "${1}" in
@@ -573,6 +801,7 @@ for _cfg in "${LOADED_CONFIG[@]}"; do _log "Loaded ${_cfg}"; done
 
 #-- Run --#
 _prepare(){
+    _detect_os
     _check_env
     _prepare_env
     _check_server_cache
