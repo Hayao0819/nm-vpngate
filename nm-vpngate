@@ -51,6 +51,12 @@ AUTO_TRY_COUNT=1
 # Backup of server list for AUTO MODE
 AUTO_CSV_SERVERLIST=()
 
+
+# About AUTO_SETUP
+# AUTO_SETUPは以前のバージョンで利用されていました
+# 現在では廃止されていますが、古い設定ファイルでも動かせるように一部で参照しています
+# MODE=AUTOの時にtrue、それ以外でfalseに設定されますが、廃止されているための他の箇所で利用しないでください
+
 # About array in this code
 # _parse_server_list parses the CSV and creates an array with each value assigned.
 # CSV_SERVERLIST contains raw CSV line by line.
