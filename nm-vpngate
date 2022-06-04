@@ -132,6 +132,12 @@ _dater(){
     fi
 }
 
+# _run command
+_run(){
+    _log "Run: ${*}"
+    "$@"
+}
+
 #-- Check environment and functions --#
 _check_env_common(){
     type "curl" 1> /dev/null 2>&1 || {
@@ -651,10 +657,11 @@ _connect_vpn_nm(){
     fi
 }
 
+# openvpnコマンドを用いてVPNに接続します
 _connect_vpn_openvpn(){
     local _ovpn_file="$CONFIG_DIR/$PROFILE_NAME.ovpn"
     test -e "$_ovpn_file" || { _error "$PROFILE_NAME was not found."; return 1; }
-    openvpn --config "$_ovpn_file"
+    _run openvpn --config "$_ovpn_file"
 }
 
 _connect_vpn(){
