@@ -191,6 +191,12 @@ _check_env_openvpn(){
     true
 }
 
+_check_env_mac(){
+    # mac does not support yet
+    _error "Sorry, Mac OS does not support yet."
+    exit 1
+}
+
 _check_env(){
     _check_env_common
     case "$SYSTEM_MODE" in
@@ -201,8 +207,8 @@ _check_env(){
             _check_env_openvpn
             ;;
         "mac")
-            _info "Skipped environment check because of Mac OS"
-            #_check_env_mac
+            #_info "Skipped environment check because of Mac OS"
+            _check_env_mac
             ;;
     esac
 }
@@ -232,10 +238,6 @@ _detect_os(){
     elif type scutil 1> /dev/null 2>&1; then
         _info "Found scutil command. Your OS may be Mac OS."
         SYSTEM_MODE="mac"
-
-        # mac does not support yet
-        _error "Sorry, Mac OS does not support yet."
-        exit 1
     fi
 }
 
