@@ -30,10 +30,10 @@ UPDATE_CACHE=false
 # List of paths of configuration files to be read
 # Write in ascending order of priority
 CONFIG_FILES=(
+    "${script_path}/nm-vpngate.conf"
     "/etc/nm-vpngate.conf"
     "${HOME="/root"}/.nm-vpngate.conf"
     "${XDG_CONFIG_HOME-"${HOME="/root"}/.config"}/nm-vpngate.conf"
-    "${script_path}/nm-vpngate.conf"
 )
 
 # Number of read configuration files
