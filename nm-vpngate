@@ -739,6 +739,7 @@ while true; do
                     MODE="GUI-KDIALOG"
                     ;;
             esac
+            shift 2
             ;;
         *)
             _error "Argument exception error '${1}'"
