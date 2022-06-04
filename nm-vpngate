@@ -36,7 +36,7 @@ CONFIG_FILES=(
     "${XDG_CONFIG_HOME-"${HOME="/root"}/.config"}/nm-vpngate.conf"
 )
 
-# Number of read configuration files
+# Path of read configuration files
 LOADED_CONFIG=()
 
 # Number of attempts in auto mode
