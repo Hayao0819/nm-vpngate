@@ -682,7 +682,7 @@ _connect_vpn(){
 }
 
 #-- Stop VPN --#
-# 
+# 現在Network Managerのみサポートされています
 _stop_vpn(){
     local _current_profile
     { [[ ! -f "${CACHE_DIR}/connected" ]] || [[ -z "$(cat "${CACHE_DIR}/connected")" ]]; } && exit 0
