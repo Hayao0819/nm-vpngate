@@ -208,6 +208,11 @@ _prepare_env(){
 
 #-- Detect OS --#
 _detect_os(){
+    if [[ -n "${SYSTEM_MODE-""}" ]]; then
+        _log "SYSTEM_MODE has already set, so ignore OS detection."
+        return 0
+    fi
+
     if systemctl is-active NetworkManager 1> /dev/null 2>&1; then
         _info "Network Manager has been actived."
         SYSTEM_MODE="network-manager"
