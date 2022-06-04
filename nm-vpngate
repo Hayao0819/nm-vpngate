@@ -552,17 +552,14 @@ _parse_profile_name(){
 }
 
 #-- Set up connection --#
+
+# _setup_vpn_common_openvpnで処理された設定ファイルをNetwork Managerに追加します
 _setup_vpn_nm_openvpn(){
     local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
 
-    #-- Save ovpn file --#
-    _log "Save OVPN file to ${_ovpn_file}"
-    [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
-    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode > "${_ovpn_file}"
-
     #-- Import OVPN file --#
     _log "Import ${_ovpn_file}"
-    nmcli connection import type openvpn file "${_ovpn_file}"
+    _run nmcli connection import type openvpn file "${_ovpn_file}"
 }
 
 _setup_vpn_nm_l2tp(){
@@ -579,7 +576,8 @@ _setup_vpn_nm(){
     fi
     case "${VPN_TYPE}" in
         "OPENVPN")
-            _setup_vpn_openvpn
+            _setup_vpn_common_openvpn
+            _setup_vpn_nm_openvpn
             ;;
         "L2TP")
             _setup_vpn_l2tp
@@ -587,7 +585,8 @@ _setup_vpn_nm(){
     esac
 }
 
-_setup_vpn_openvpn(){
+# OpenVPNの設定ファイルをディレクトリに保存します
+_setup_vpn_common_openvpn(){
     local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
 
     #-- Save ovpn file --#
@@ -596,7 +595,12 @@ _setup_vpn_openvpn(){
     echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode > "${_ovpn_file}"
 
     #-- Import OVPN file --#
-    _log "Import $_ovpn_file"
+    #_log "Import $_ovpn_file"
+}
+
+_setup_vpn_openvpn(){
+    _setup_vpn_common_openvpn #設定ファイルを保存
+    # openvpnコマンドにプロファイル関連的なコマンドはないので、これ以上は何もしない
 }
 
 _setup_vpn_mac(){
