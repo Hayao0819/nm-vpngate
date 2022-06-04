@@ -27,6 +27,10 @@ CSV_SERVERLIST=()
 # This variable changes to true only when the -u option is specified
 UPDATE_CACHE=false
 
+# OS
+# It is set by script
+SYSTEM_MODE=""
+
 # List of paths of configuration files to be read
 # Write in ascending order of priority
 CONFIG_FILES=(
