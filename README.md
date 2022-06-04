@@ -21,15 +21,17 @@ A script that makes it easy to connect Network Manager to a VPN Gate
 ## Dependency
 This script is developed on Arch Linux and test on Arch Linux and Ubuntu.
 
+In previous versions, there were some GNU dependencies.
+
+If you don't use the GUI, you don't need to install kdialog and zenity.
+
 - Systemd
-- GNU date
 - networkmanager (nmcli)
 - networkmanager-openvpn
 - networkmanager-strongswan
 - networkmanager-l2tp
-- bash (Tested version is 5.1.8)
+- bash 5.x (Tested version is 5.1.8, 5.8.16)
 - curl
-- GNU getopt
 - zenity (for GTK server list)
 - kdialog (for Qt server list)
 
