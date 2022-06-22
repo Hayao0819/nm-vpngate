@@ -677,7 +677,7 @@ _connect_vpn_nm(){
 _connect_vpn_openvpn(){
     local _ovpn_file="$CONFIG_DIR/$PROFILE_NAME.ovpn"
     test -e "$_ovpn_file" || { _error "$PROFILE_NAME was not found."; return 1; }
-    _run openvpn --config "$_ovpn_file"
+    _run sudo openvpn --config "$_ovpn_file"
 }
 
 _connect_vpn(){
