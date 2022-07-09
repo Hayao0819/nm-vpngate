@@ -677,7 +677,11 @@ _connect_vpn_nm(){
 _connect_vpn_openvpn(){
     local _ovpn_file="$CONFIG_DIR/$PROFILE_NAME.ovpn"
     test -e "$_ovpn_file" || { _error "$PROFILE_NAME was not found."; return 1; }
-    _run sudo openvpn --config "$_ovpn_file"
+    if [[ "${MODE}" = "GUI-"* ]]; then
+        _run pkexec openvpn --config "$_ovpn_file"
+    else
+        _run sudo openvpn --config "$_ovpn_file"
+    fi
 }
 
 _connect_vpn(){
