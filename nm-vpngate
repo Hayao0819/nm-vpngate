@@ -599,7 +599,10 @@ _setup_vpn_common_openvpn(){
     _log "Save OVPN file to ${_ovpn_file}"
     [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
     echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode > "${_ovpn_file}"
-
+    
+    #-- Add DNS extension to prevent DNS leaks--#
+    sed -i '\|<ca>|,\|^-----BEGIN CERTIFICATE-----|{s/^-----BEGIN CERTIFICATE-----/script-security 2\nup \/etc\/openvpn\/update-resolv-conf\ndown \/etc\/openvpn\/update-resolv-conf\n<ca>\n-----BEGIN CERTIFICATE-----/p;d}' "${_ovpn_file}" #> "${_ovpn_file}"
+    
     #-- Import OVPN file --#
     #_log "Import $_ovpn_file"
 }
