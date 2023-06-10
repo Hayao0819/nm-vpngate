@@ -10,12 +10,6 @@
 # 
 set -Eeu -o pipefail
 
-# Load shell script library
-# shellcheck source=/dev/null
-source /dev/stdin < <(
-    fasbashlib -s -x "v0.2.2" 2> /dev/null || curl -sL "https://github.com/Hayao0819/FasBashLib/releases/download/v0.2.2/fasbashlib-snake.sh"
-)
-
 # The directory where the script is located
 script_path="$(cd "$(dirname "${0}")" || exit 1 ; pwd)"
 
@@ -716,11 +710,16 @@ for _cfg in "${CONFIG_FILES[@]}"; do
 done
 
 #-- Parse argument --#
-parse_arg SHORT="acghqt:ul:rn:" LONG="auto,cli,gtk,type:,help,nocache,country:,update,limit:,remove,stop,name:,gui:,qt" -- "$@" || exit 1
-eval set -- "${OPTRET[@]}"
-unset OPTRET
+while [[ -n "${1-""}" ]]; do
+    case $1 in
+        -[!-]?*)
+            ARG="$1"
+            shift 1
+            set -- "${ARG%"${ARG#??}"}" "-${ARG#??}" "$@"
+            unset ARG
+            ;;
+    esac
 
-while true; do
     case "${1}" in
         -a | --auto    ) MODE="AUTO"                 ; shift 1 ;;
         -c | --cli     ) MODE="CLI"                  ; shift 1 ;;
@@ -752,8 +751,8 @@ while true; do
             shift 2
             ;;
         *)
-            _error "Argument exception error '${1}'"
-            _error "Please report this error to the developer with your command line argument."
+            _error "Unknwn argument: '${1}'"
+            _error "Please see the help with '${0} --help'"
             exit 1
             ;;
     esac
