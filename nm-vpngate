@@ -95,7 +95,7 @@ _script_usage(){
     echo "    -t | --type [type]         Set the method of VPN (L2TP, OPENVPN)"
     echo "    -u | --update              Update the cache of server list"
     echo "    -h | --help                Show this help and exit"
-    echo "         --stop                Disconnects and exits the currently valid VPN connection"
+    echo "    -s |  --stop                Disconnects and exits the currently valid VPN connection"
     echo "         --nocache             Do not use cached server list"
     echo "         --country [country]   Set the country filter"
 }
