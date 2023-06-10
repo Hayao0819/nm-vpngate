@@ -602,7 +602,7 @@ _setup_vpn_nm(){
             _setup_vpn_nm_openvpn
             ;;
         "L2TP")
-            _setup_vpn_l2tp
+            _setup_vpn_nm_l2tp
             ;;
     esac
 }
