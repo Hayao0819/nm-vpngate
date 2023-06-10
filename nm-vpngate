@@ -732,7 +732,7 @@ while [[ -n "${1-""}" ]]; do
         -l | --limit   ) AUTO_LIMIT="${2}"           ; shift 2 ;;
         -r | --remove  ) REMOVE_PROFILE=true         ; shift 1 ;;
         -h | --help    ) _script_usage               ; exit  0 ;;
-             --stop    ) MODE="STOP"                 ; shift 1 ;;
+        -s | --stop    ) MODE="STOP"                 ; shift 1 ;;
         --             ) shift 1                     ; break   ;;
         -n | --name    )
             SelectedVPNName="${2}"
