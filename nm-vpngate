@@ -355,12 +355,34 @@ _parse_server_list(){
 
 #-- Select server --#
 _select_server_cli(){
-    local _args=()
+    local _args=() _select="" REPLY="" OLD_PS3="${PS3-""}"
     for _server in "${CSV_SERVERLIST[@]}"; do
         #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
         _args+=("$(cut -d "," -f 1,2,7 <<< "${_server}")")
     done
-    SelectedVPNName="$(choice -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)" || _select_server_cli
+    #SelectedVPNName="$(choice -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)" || _select_server_cli
+
+    echo "Please select server that you want to connect" >&2
+    PS3="(1~${#_args[@]}) > "
+    select _select in "${_args[@]}"; do
+        case "${_select}" in
+            *)
+                SelectedVPNName="$(cut -d "," -f 1 <<< "${_select}")"
+                break
+                ;;
+        esac
+    done
+    if [[ -n "$SelectedVPNName" ]]; then
+        return 0
+    elif printf "%s\n" "${CSV_SERVERLIST[@]}" | cut -d "," -f 1 | grep -qx "${REPLY}"; then
+        SelectedVPNName="${REPLY}"
+        return 0
+    else
+        _select_server_cli
+    fi
+
+    PS3="${OLD_PS3}"
+
 }
 
 _select_server_zenity(){
