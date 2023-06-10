@@ -695,7 +695,10 @@ _stop_vpn(){
     local _current_profile
     { [[ ! -f "${CACHE_DIR}/connected" ]] || [[ -z "$(cat "${CACHE_DIR}/connected")" ]]; } && exit 0
     _current_profile="$(cat "${CACHE_DIR}/connected")"
-    nmcli con down id "${_current_profile}" || true
+    if nmcli con down id "${_current_profile}"; then
+        printf > "${CACHE_DIR}/connected"
+    fi
+
     [[ "${REMOVE_PROFILE}" = true ]] && {
         nmcli con delete "${_current_profile}" || true
     }
