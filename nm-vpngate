@@ -623,9 +623,9 @@ _setup_vpn(){
 
 #-- Connect VPN --#
 # PROFILE_NAMEのUUIDを返します
-_get_uuid(){
-    nmcli -c no con show | sed "1d" | awk "{ if (\$1 == \"${PROFILE_NAME}\"){ print \$2} }"
-}
+#_get_uuid(){
+#    nmcli -c no con show | sed "1d" | awk "{ if (\$1 == \"${PROFILE_NAME}\"){ print \$2} }"
+#}
 
 # Network Managerを用いてVPNに接続します
 # _setup_vpn_nm以降は接続方法に関わらず共通なので、openvpnとl2tpの場合分けはしません
