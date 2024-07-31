@@ -7,11 +7,14 @@
 # (c) 2019-2021 Fascode Network.
 #
 # A script that makes it easy to connect Network Manager to a VPN Gate
-# 
+#
 set -Eeu -o pipefail
 
 # The directory where the script is located
-script_path="$(cd "$(dirname "${0}")" || exit 1 ; pwd)"
+script_path="$(
+    cd "$(dirname "${0}")" || exit 1
+    pwd
+)"
 
 # CSV obtained from API will be assigned to this array line by line
 CSV_SERVERLIST=()
@@ -45,7 +48,6 @@ AUTO_TRY_COUNT=1
 # Backup of server list for AUTO MODE
 AUTO_CSV_SERVERLIST=()
 
-
 # About AUTO_SETUP
 # AUTO_SETUPは以前のバージョンで利用されていました
 # 現在では廃止されていますが、古い設定ファイルでも動かせるように一部で参照しています
@@ -61,15 +63,15 @@ AUTO_CSV_SERVERLIST=()
 # For example, ${IPList[3]} and ${PingLisrt[3]} point to the same server.
 
 #-- Message functions --#
-_log(){   echo "[ LOG ]: ${1}" >&2; }
-_msg(){
+_log() { echo "[ LOG ]: ${1}" >&2; }
+_msg() {
     echo "[${1}]: ${2}" >&2
     [[ "${MODE}" = "GUI-"* ]] || return 0
     #zenity "--$(tr '[:upper:]' '[:lower:]' <<< "${1//" "/}")" --text "${2}" --title="${APP_NAME}" || true &
 }
-_info(){  _msg " INFO" "${1}"; }
-_warn(){  echo "[ WARN]: ${1}" >&2; }
-_error(){ 
+_info() { _msg " INFO" "${1}"; }
+_warn() { echo "[ WARN]: ${1}" >&2; }
+_error() {
     _msg "ERROR" "${1}"
     [[ -n "${2-""}" ]] || return 0 && exit "${2}"
 }
@@ -78,7 +80,7 @@ _error(){
 #test -t 0 || MODE="GUI" && MODE="CLI"
 
 #-- Funcions -#
-_script_usage(){
+_script_usage() {
     echo "usage ${0} [options]"
     echo
     echo "A script that makes it easy to connect Network Manager to a VPN Gate"
@@ -103,14 +105,14 @@ _script_usage(){
 # Returns the column number of CSV_VARS.
 # For example, if you say CSV_VARS = "Name,IP,Ping" and run _get_csv_clm IP, 2 will be returned.
 # _get_csv_clm <var name>
-_get_csv_clm(){
+_get_csv_clm() {
     local _clm
-    _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${1}\"){ print NR }}")"
+    _clm="$(tr "," "\n" <<<"${CSV_VARS}" | awk "{if (\$0 == \"${1}\"){ print NR }}")"
     [[ -n "${_clm}" ]] && echo "${_clm}" && return 0
     return 1
 }
 
-_base64_decode(){
+_base64_decode() {
     local _isGnu=false
     base64 --help | grep -q "GNU" && _isGnu=true
 
@@ -122,9 +124,9 @@ _base64_decode(){
 }
 
 # _dater <path>
-_dater(){
+_dater() {
     local _isGnu=false
-    date --help 2> /dev/null | grep -q "GNU" && _isGnu=true
+    date --help 2>/dev/null | grep -q "GNU" && _isGnu=true
 
     if [[ "$_isGnu" = true ]]; then
         date +%s -r "$1"
@@ -137,84 +139,89 @@ _dater(){
 }
 
 # _run command
-_run(){
+_run() {
     _log "Run: ${*}"
     "$@"
 }
 
 #-- Check environment and functions --#
-_check_env_common(){
-    type "curl" 1> /dev/null 2>&1 || {
+_check_env_common() {
+    type "curl" 1>/dev/null 2>&1 || {
         _error "Curl is not installed."
         exit 1
     }
 
-    type "zenity" 1> /dev/null 2>&1 || {
+    type "zenity" 1>/dev/null 2>&1 || {
         _warn "Zenity is not installed."
         _warn "You cannnot use GUI-ZENITY mode."
     }
 }
 
-_check_env_nm(){
+_check_env_nm() {
     local _exit=0
 
     # Check the number of loaded configuration files
-    if (( "${#LOADED_CONFIG[@]}" < 1 )); then
+    if (("${#LOADED_CONFIG[@]}" < 1)); then
         _error "No configuration file was found."
-        _exit="$((_exit+1))"
+        _exit="$((_exit + 1))"
     fi
 
     # Check external commands
     for _cmd in "nmcli" "systemctl"; do
-        ! type "${_cmd}" 1> /dev/null 2>&1 && \
-            _error "${_cmd} is not installed." && _exit="$((_exit+1))"
+        ! type "${_cmd}" 1>/dev/null 2>&1 &&
+            _error "${_cmd} is not installed." && _exit="$((_exit + 1))"
     done
 
     # Check NetworkManager VPN Plugin
-    for _vpn in "openvpn" "strongswan" "l2tp" ;do
-        ! [[ -f "/usr/lib/NetworkManager/VPN/nm-${_vpn}-service.name" ]] && \
-            _error "NetworkManager Plugin for ${_vpn} is not installed." && _exit="$((_exit+1))"
+    for _vpn in "openvpn" "strongswan" "l2tp"; do
+        ! [[ -f "/usr/lib/NetworkManager/VPN/nm-${_vpn}-service.name" ]] &&
+            _error "NetworkManager Plugin for ${_vpn} is not installed." && _exit="$((_exit + 1))"
     done
 
     # Check Metwork Manager
-    ! systemctl is-active NetworkManager 1> /dev/null 2>&1 && \
-        _error "NetworkManager is not running." && _exit="$((_exit+1))"
+    ! systemctl is-active NetworkManager 1>/dev/null 2>&1 &&
+        _error "NetworkManager is not running." && _exit="$((_exit + 1))"
 
     # Exit if errors has been found
-    (( _exit != 0 )) && exit 1 
+    ((_exit != 0)) && exit 1
 
     return 0
 }
 
-_check_env_openvpn(){
+_check_env_openvpn() {
     # Currently, there is nothing to do
     true
 }
 
-_check_env_mac(){
+_check_env_mac() {
     # mac does not support yet
     _error "Sorry, Mac OS does not support yet."
     exit 1
 }
 
-_check_env(){
-    _check_env_common
+_check_env_systemmode() {
     case "$SYSTEM_MODE" in
-        "network-manager")
-            _check_env_nm
-            ;;
-        "openvpn")
-            _check_env_openvpn
-            ;;
-        "mac")
-            #_info "Skipped environment check because of Mac OS"
-            _check_env_mac
-            ;;
+    "network-manager")
+        _check_env_nm
+        ;;
+    "openvpn")
+        _check_env_openvpn
+        ;;
+    "mac")
+        #_info "Skipped environment check because of Mac OS"
+        _check_env_mac
+        ;;
     esac
 }
 
+_check_env() {
+    _check_env_common
+    _check_env_systemmode
+
+}
+
 #-- Prepare environment --#
-_prepare_env(){
+_prepare_env() {
     # Create directories
     mkdir -p "${CONFIG_DIR}" "${CACHE_DIR}"
 
@@ -223,39 +230,39 @@ _prepare_env(){
 }
 
 #-- Detect OS --#
-_detect_os(){
+_detect_os() {
     if [[ -n "${SYSTEM_MODE-""}" ]]; then
         _log "SYSTEM_MODE has already set, so ignore OS detection."
         return 0
     fi
 
-    if systemctl is-active NetworkManager 1> /dev/null 2>&1; then
+    if systemctl is-active NetworkManager 1>/dev/null 2>&1; then
         _info "Network Manager has been actived."
         SYSTEM_MODE="network-manager"
-    elif  type openvpn 1> /dev/null 2>&1; then
+    elif type openvpn 1>/dev/null 2>&1; then
         _info "Found openvpn command. Use it to connect VPN."
         SYSTEM_MODE="openvpn"
-    elif type scutil 1> /dev/null 2>&1; then
+    elif type scutil 1>/dev/null 2>&1; then
         _info "Found scutil command. Your OS may be Mac OS."
         SYSTEM_MODE="mac"
     fi
 }
 
 #-- Check and Update server cache --#
-_check_server_cache(){
+_check_server_cache() {
     _info "Checking server cache"
 
     local _current_time _cache_last_update_time _cache_elapsed_time
     if [[ -f "${CACHE_PATH}" ]]; then
-        _current_time="$(date +%s)" 
+        _current_time="$(date +%s)"
         _cache_last_update_time="$(_dater "${CACHE_PATH}")"
-        _cache_elapsed_time="$(( _current_time - _cache_last_update_time ))"
+        _cache_elapsed_time="$((_current_time - _cache_last_update_time))"
 
-        if (( _cache_elapsed_time > KEEP_CACHE )); then
+        if ((_cache_elapsed_time > KEEP_CACHE)); then
             UPDATE_CACHE=true
         else
-            if date --help 2> /dev/null | grep -q "GNU"; then
-                _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "@${_cache_last_update_time}" )"
+            if date --help 2>/dev/null | grep -q "GNU"; then
+                _log "The last update of the cache is $(date "+%Y/%m/%d %H:%M:%S" --date "@${_cache_last_update_time}")"
             else
                 _log "The last update of the cache is $(date -j -u -r "${_cache_last_update_time}" +"%Y/%m/%d %H:%M:%S")"
             fi
@@ -267,16 +274,16 @@ _check_server_cache(){
 }
 
 #-- Get server list from API or cache--#
-_get_server_list(){
+_get_server_list() {
     _info "Getting and parsing the server list is in progress"
     if [[ "${UPDATE_CACHE}" = true ]]; then
         _log "Remove and update cached server list"
         rm -rf "${CACHE_PATH}"
     fi
-    
+
     if [[ -f "${CACHE_PATH}" ]] && [[ "${USE_CACHE}" = true ]]; then
         _log "Use cached server list in ${CACHE_PATH}"
-        readarray -t CSV_SERVERLIST < <(grep -v "^\*" < "${CACHE_PATH}" | grep -v "^#")
+        readarray -t CSV_SERVERLIST < <(grep -v "^\*" <"${CACHE_PATH}" | grep -v "^#")
     else
         _log "Getting server list from ${VPNGATE_CSV} ..."
         readarray -t CSV_SERVERLIST < <(curl -sL "${VPNGATE_CSV}" | grep -v "^\*" | grep -v "^#" | tee "${CACHE_PATH}")
@@ -284,9 +291,9 @@ _get_server_list(){
 
     # サーバリストのカラム数がCSV_VARSと等しいかを確認
     local _Line
-    local _Currect=$(tr "," "\n" <<< "$CSV_VARS" | wc -l)
+    local _Currect=$(tr "," "\n" <<<"$CSV_VARS" | wc -l)
     for _Line in "${CSV_SERVERLIST[@]}"; do
-        (( "$(tr "," "\n" <<< "$_Line" | wc -l)" == _Currect )) ||{
+        (("$(tr "," "\n" <<<"$_Line" | wc -l)" == _Currect)) || {
             _error "Server list or API config is missing."
             _error "Please check the Internet connection and API update."
             exit 1
@@ -302,17 +309,17 @@ _get_server_list(){
 #
 # _filter_server_list <filter name>
 # Example: _filter_server_list TargetIP
-_filter_server_list(){
+_filter_server_list() {
     # 変数を初期化
     local _Backup_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}") _exp _clm _var="${1-""}" _empty=false
     CSV_SERVERLIST=()
-    
+
     # $_var（$1）をもとにフィルター対象のカラムを設定
     # ここで設定した値をawkの変数名として使う
-    _clm="$(tr "," "\n" <<< "${CSV_VARS}" | awk "{if (\$0 == \"${_var//Target/}\"){ print NR }}")"
+    _clm="$(tr "," "\n" <<<"${CSV_VARS}" | awk "{if (\$0 == \"${_var//Target/}\"){ print NR }}")"
 
     # フィルター処理
-    if  [[ -z "${_var}" ]] || [[ -z "$(eval "echo \${${_var}}")" ]]; then 
+    if [[ -z "${_var}" ]] || [[ -z "$(eval "echo \${${_var}}")" ]]; then
         # フィルター設定がすべて空の場合はすべてのサーバを対象にする
         CSV_SERVERLIST=("${_Backup_CSV_SERVERLIST[@]}")
     else
@@ -329,7 +336,7 @@ _filter_server_list(){
     readarray -t CSV_SERVERLIST < <(printf "%s\n" "${CSV_SERVERLIST[@]}" | awk '!a[$0]++{print}')
 
     # サーバリストが空の場合は終了する
-    if (( "${#CSV_SERVERLIST[@]}" == 0 )) || [[ -z "${CSV_SERVERLIST[*]}" ]]; then
+    if (("${#CSV_SERVERLIST[@]}" == 0)) || [[ -z "${CSV_SERVERLIST[*]}" ]]; then
         _error "No server found. Please check Target* configs."
         exit 1
     fi
@@ -337,28 +344,28 @@ _filter_server_list(){
 }
 
 # Pass all variables starting with Target to _filter_server_list.
-_run_filter(){
+_run_filter() {
     local _var
     while read -r _var; do
         _filter_server_list "${_var}"
-    done < <(tr " " "\n" <<< "${!Target*}")
+    done < <(tr " " "\n" <<<"${!Target*}")
 }
 
 #-- Parse server list --#
-_parse_server_list(){
+_parse_server_list() {
     local _cnt
     _log "Paring CSV ..."
     while read -r _cnt; do
-        readarray -t "$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List" < <(printf "%s\n" "${CSV_SERVERLIST[@]}" | cut -d "," -f "${_cnt}")
-    done < <(seq "1" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+        readarray -t "$(tr "," "\n" <<<"${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List" < <(printf "%s\n" "${CSV_SERVERLIST[@]}" | cut -d "," -f "${_cnt}")
+    done < <(seq "1" "$(tr "," "\n" <<<"${CSV_VARS}" | wc -l)")
 }
 
 #-- Select server --#
-_select_server_cli(){
+_select_server_cli() {
     local _args=() _select="" REPLY="" OLD_PS3="${PS3-""}"
     for _server in "${CSV_SERVERLIST[@]}"; do
         #readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
-        _args+=("$(cut -d "," -f 1,2,7 <<< "${_server}")")
+        _args+=("$(cut -d "," -f 1,2,7 <<<"${_server}")")
     done
     #SelectedVPNName="$(choice -p "Please select server that you want to connect" "${_args[@]}" | cut -d "," -f 1)" || _select_server_cli
 
@@ -366,10 +373,10 @@ _select_server_cli(){
     PS3="(1~${#_args[@]}) > "
     select _select in "${_args[@]}"; do
         case "${_select}" in
-            *)
-                SelectedVPNName="$(cut -d "," -f 1 <<< "${_select}")"
-                break
-                ;;
+        *)
+            SelectedVPNName="$(cut -d "," -f 1 <<<"${_select}")"
+            break
+            ;;
         esac
     done
     if [[ -n "$SelectedVPNName" ]]; then
@@ -385,18 +392,18 @@ _select_server_cli(){
 
 }
 
-_select_server_zenity(){
+_select_server_zenity() {
     local _args=() _server
 
     # CSV_VARSのぶんだけリストのカラムを作成
     _log "Configuring graphical user interface ..."
     while read -r _var; do
         _args+=(--column="${_var}")
-    done < <(tr "," "\n" <<< "${CSV_VARS}")
+    done < <(tr "," "\n" <<<"${CSV_VARS}")
 
     # サーバ情報をZenityに渡す
     for _server in "${CSV_SERVERLIST[@]}"; do
-        readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<< "${_server}" )
+        readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<<"${_server}")
     done
 
     # OpenVPN_ConfigData_Base64を非表示にする
@@ -410,7 +417,7 @@ _select_server_zenity(){
 }
 
 # Todo: GUIのテキスト表示を見やすくする
-_select_server_kdialog(){
+_select_server_kdialog() {
     local _args=() _server _gui
 
     # タイトル等を設定
@@ -423,9 +430,9 @@ _select_server_kdialog(){
     _log "Configuring graphical user interface ..."
     for _server in "${CSV_SERVERLIST[@]}"; do
         # 似たようなものを2回追加するのはミスではありません
-        _args+=("$(cut -d "," -f 1 <<< "${_server}")") # キー（ここの値がSelecedVPNNameに代入されます）
-        _args+=("$(cut -d "," -f 1,2,7 <<< "${_server}")") # ラベル(ここの値がGUIに表示されます) 
-        _args+=("off") # デフォルト動作（off固定）
+        _args+=("$(cut -d "," -f 1 <<<"${_server}")")     # キー（ここの値がSelecedVPNNameに代入されます）
+        _args+=("$(cut -d "," -f 1,2,7 <<<"${_server}")") # ラベル(ここの値がGUIに表示されます)
+        _args+=("off")                                    # デフォルト動作（off固定）
     done
 
     # kdialogを実行する
@@ -437,34 +444,34 @@ _select_server_kdialog(){
     return 0
 }
 
-_select_server_name(){
+_select_server_name() {
     # Name check
     [[ -n "${SelectedVPNName-""}" ]] || {
         _error "No server was selected" 1
     }
 }
-_select_server_auto(){
+_select_server_auto() {
     AUTO_SETUP=true MODE="AUTO"
     _info "Auto mode has been selected. "
     local _sort_opt _value_list _target_value
 
     # Backup server list at first
-    (( AUTO_TRY_COUNT < 2 )) && AUTO_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}")
+    ((AUTO_TRY_COUNT < 2)) && AUTO_CSV_SERVERLIST=("${CSV_SERVERLIST[@]}")
 
     # Change the argument of the sort command depending on the maximum or minimum value
     case "${AUTO_COND}" in
-        "MAX")
-            _log "Connect the server with the highest ${AUTO_TARGET} value."
-            _sort_opt=("-n" "-r")
-            ;;
-        "MIN")
-            _log "Connect the server with the lowest ${AUTO_TARGET} value."
-            _sort_opt=("-n")
-            ;;
-        *)
-            _error "Specify only MIN or MAX for AUTO_COND."
-            exit 1
-            ;;
+    "MAX")
+        _log "Connect the server with the highest ${AUTO_TARGET} value."
+        _sort_opt=("-n" "-r")
+        ;;
+    "MIN")
+        _log "Connect the server with the lowest ${AUTO_TARGET} value."
+        _sort_opt=("-n")
+        ;;
+    *)
+        _error "Specify only MIN or MAX for AUTO_COND."
+        exit 1
+        ;;
     esac
 
     # Exit if the array of values specified by AUTO_TARGET does not exist
@@ -493,9 +500,9 @@ _select_server_auto(){
     _parse_server_list
 
     # Get the name from the filtered server list
-    SelectedVPNName="$(cut -d "," -f 1 <<< "${CSV_SERVERLIST[0]}")"
+    SelectedVPNName="$(cut -d "," -f 1 <<<"${CSV_SERVERLIST[0]}")"
 }
-_select_server(){
+_select_server() {
 
     # すべての_select_server_* 関数はSelectedVPNNameを定義してください。
 
@@ -503,24 +510,24 @@ _select_server(){
         _select_server_auto
     else
         case "${MODE}" in
-            "GUI-ZENITY")
-                _select_server_zenity
-                ;;
-            "GUI-KDIALOG")
-                _select_server_kdialog
-                ;;
-            "CLI")
-                _select_server_cli
-                ;;
-            "AUTO")
-                _select_server_auto
-                ;;
-            "NAME")
-                _select_server_name
-                ;;
-            *)
-                _error "${MODE} is not correct" 1
-                ;;
+        "GUI-ZENITY")
+            _select_server_zenity
+            ;;
+        "GUI-KDIALOG")
+            _select_server_kdialog
+            ;;
+        "CLI")
+            _select_server_cli
+            ;;
+        "AUTO")
+            _select_server_auto
+            ;;
+        "NAME")
+            _select_server_name
+            ;;
+        *)
+            _error "${MODE} is not correct" 1
+            ;;
         esac
     fi
 
@@ -534,7 +541,7 @@ _select_server(){
 }
 
 #-- Get server info from serner name --#
-_get_server_from_name(){
+_get_server_from_name() {
     # 指定されたサーバ名が存在しなかったら終了する
     ! printf "%s\n" "${HostNameList[@]}" | grep -qx "${SelectedVPNName}" && {
         _error "${SelectedVPNName} was not found in server list."
@@ -551,7 +558,7 @@ _get_server_from_name(){
             if (\$1 == \"${SelectedVPNName}\" ){
                 print NR - 1
             }
-        }" < <(printf "%s\n" "${CSV_SERVERLIST[@]}") )"
+        }" < <(printf "%s\n" "${CSV_SERVERLIST[@]}"))"
     else
         _error "Failed to get server name"
         exit 1
@@ -565,18 +572,18 @@ _get_server_from_name(){
 #-- Parse format --#
 # PROFILE_NAME_FORMATに従ってPROFILE_NAMEを設定します
 # CSV_VARSの置き換えをwhileで繰り返し行います
-_parse_profile_name(){
+_parse_profile_name() {
     PROFILE_NAME="${PROFILE_NAME_FORMAT}"
     _log "Parsing name format"
     while read -r _cnt; do
-        PROFILE_NAME="${PROFILE_NAME//$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)/$(eval "echo \${$(tr "," "\n" <<< "${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List[${SelectedIndex}]}")}"
-    done < <(seq "1" "$(tr "," "\n" <<< "${CSV_VARS}" | wc -l)")
+        PROFILE_NAME="${PROFILE_NAME//$(tr "," "\n" <<<"${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)/$(eval "echo \${$(tr "," "\n" <<<"${CSV_VARS}" | head -n "${_cnt}" | tail -n 1)List[${SelectedIndex}]}")}"
+    done < <(seq "1" "$(tr "," "\n" <<<"${CSV_VARS}" | wc -l)")
 }
 
 #-- Set up connection --#
 
 # _setup_vpn_common_openvpnで処理された設定ファイルをNetwork Managerに追加します
-_setup_vpn_nm_openvpn(){
+_setup_vpn_nm_openvpn() {
     local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
 
     #-- Import OVPN file --#
@@ -584,62 +591,62 @@ _setup_vpn_nm_openvpn(){
     _run nmcli connection import type openvpn file "${_ovpn_file}"
 }
 
-_setup_vpn_nm_l2tp(){
+_setup_vpn_nm_l2tp() {
     nmcli connection add \
         connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
         connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
 }
 
-_setup_vpn_nm(){
+_setup_vpn_nm() {
     if nmcli -c no con | sed "1d" | cut -d " " -f 1 | grep -qx "${PROFILE_NAME}"; then
         _warn "${PROFILE_NAME} has been added to the Network Manager"
         _warn "Skip to add it and continue to connent"
         return 0
     fi
     case "${VPN_TYPE}" in
-        "OPENVPN")
-            _setup_vpn_common_openvpn
-            _setup_vpn_nm_openvpn
-            ;;
-        "L2TP")
-            _setup_vpn_nm_l2tp
-            ;;
+    "OPENVPN")
+        _setup_vpn_common_openvpn
+        _setup_vpn_nm_openvpn
+        ;;
+    "L2TP")
+        _setup_vpn_nm_l2tp
+        ;;
     esac
 }
 
 # OpenVPNの設定ファイルをディレクトリに保存します
-_setup_vpn_common_openvpn(){
+_setup_vpn_common_openvpn() {
     local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
 
     #-- Save ovpn file --#
     _log "Save OVPN file to ${_ovpn_file}"
     [[ -f "${_ovpn_file}" ]] && _warn "Overwrite ${_ovpn_file}"
-    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode > "${_ovpn_file}"
+    echo -n "${OpenVPN_ConfigData_Base64List[${SelectedIndex}]}" | _base64_decode >"${_ovpn_file}"
 
     #-- Import OVPN file --#
     #_log "Import $_ovpn_file"
 }
 
-_setup_vpn_openvpn(){
+_setup_vpn_openvpn() {
     _setup_vpn_common_openvpn #設定ファイルを保存
     # openvpnコマンドにプロファイル関連的なコマンドはないので、これ以上は何もしない
 }
 
-_setup_vpn_mac(){
+_setup_vpn_mac() {
     _error "I dont known how to connect VPN on Mac with CLI"
 }
 
-_setup_vpn(){
+_setup_vpn() {
     case "$SYSTEM_MODE" in
-        "network-manager")
-            _setup_vpn_nm
-            ;;
-        "openvpn")
-            _setup_vpn_openvpn
-            ;;
-        "mac")
-            _setup_vpn_mac
-            ;;
+    "network-manager")
+        _setup_vpn_nm
+        ;;
+    "openvpn")
+        _setup_vpn_openvpn
+        ;;
+    "mac")
+        _setup_vpn_mac
+        ;;
     esac
 }
 
@@ -651,7 +658,7 @@ _setup_vpn(){
 
 # Network Managerを用いてVPNに接続します
 # _setup_vpn_nm以降は接続方法に関わらず共通なので、openvpnとl2tpの場合分けはしません
-_connect_vpn_nm(){
+_connect_vpn_nm() {
     local _exit=0
 
     # すでに接続されているか確認
@@ -665,9 +672,9 @@ _connect_vpn_nm(){
     nmcli con up id "${PROFILE_NAME}" || _exit="${?}"
 
     # 接続に成功すれば終了
-    if (( _exit == 0)); then
+    if ((_exit == 0)); then
         _info "Network Manager has been connected to VPN Gate (${PROFILE_NAME})"
-        echo "${PROFILE_NAME}" > "${CACHE_DIR}/connected"
+        echo "${PROFILE_NAME}" >"${CACHE_DIR}/connected"
         exit 0
     fi
 
@@ -676,9 +683,9 @@ _connect_vpn_nm(){
         _error "Remove ${PROFILE_NAME} from Network Manager"
         nmcli con delete "${PROFILE_NAME}" || true
     fi
-    if [[ "${MODE}" = "AUTO" ]] && { (( AUTO_LIMIT == 0 )) || (( AUTO_LIMIT > AUTO_TRY_COUNT )); }; then
+    if [[ "${MODE}" = "AUTO" ]] && { ((AUTO_LIMIT == 0)) || ((AUTO_LIMIT > AUTO_TRY_COUNT)); }; then
         # 別のサーバで再接続を試みる
-        AUTO_TRY_COUNT="$(( AUTO_TRY_COUNT + 1 ))"
+        AUTO_TRY_COUNT="$((AUTO_TRY_COUNT + 1))"
         CSV_SERVERLIST=("${AUTO_CSV_SERVERLIST[@]}") # Reset server list
         _parse_server_list
         _select_server_auto
@@ -690,9 +697,12 @@ _connect_vpn_nm(){
 }
 
 # openvpnコマンドを用いてVPNに接続します
-_connect_vpn_openvpn(){
+_connect_vpn_openvpn() {
     local _ovpn_file="$CONFIG_DIR/$PROFILE_NAME.ovpn"
-    test -e "$_ovpn_file" || { _error "$PROFILE_NAME was not found."; return 1; }
+    test -e "$_ovpn_file" || {
+        _error "$PROFILE_NAME was not found."
+        return 1
+    }
     if [[ "${MODE}" = "GUI-"* ]]; then
         _run pkexec openvpn --config "$_ovpn_file"
     else
@@ -700,25 +710,25 @@ _connect_vpn_openvpn(){
     fi
 }
 
-_connect_vpn(){
+_connect_vpn() {
     case "$SYSTEM_MODE" in
-        "network-manager")
-            _connect_vpn_nm
-            ;;
-        "openvpn")
-            _connect_vpn_openvpn
-            ;;
+    "network-manager")
+        _connect_vpn_nm
+        ;;
+    "openvpn")
+        _connect_vpn_openvpn
+        ;;
     esac
 }
 
 #-- Stop VPN --#
 # 現在Network Managerのみサポートされています
-_stop_vpn(){
+_stop_vpn() {
     local _current_profile
     { [[ ! -f "${CACHE_DIR}/connected" ]] || [[ -z "$(cat "${CACHE_DIR}/connected")" ]]; } && exit 0
     _current_profile="$(cat "${CACHE_DIR}/connected")"
     if nmcli con down id "${_current_profile}"; then
-        printf > "${CACHE_DIR}/connected"
+        printf >"${CACHE_DIR}/connected"
     fi
 
     [[ "${REMOVE_PROFILE}" = true ]] && {
@@ -726,7 +736,6 @@ _stop_vpn(){
     }
     return 0
 }
-
 
 #-- Config --#
 for _cfg in "${CONFIG_FILES[@]}"; do
@@ -737,49 +746,88 @@ done
 #-- Parse argument --#
 while [[ -n "${1-""}" ]]; do
     case $1 in
-        -[!-]?*)
-            ARG="$1"
-            shift 1
-            set -- "${ARG%"${ARG#??}"}" "-${ARG#??}" "$@"
-            unset ARG
-            ;;
+    -[!-]?*)
+        ARG="$1"
+        shift 1
+        set -- "${ARG%"${ARG#??}"}" "-${ARG#??}" "$@"
+        unset ARG
+        ;;
     esac
 
     case "${1}" in
-        -a | --auto    ) MODE="AUTO"                 ; shift 1 ;;
-        -c | --cli     ) MODE="CLI"                  ; shift 1 ;;
-        -g | --gtk     ) MODE="GUI-ZENITY"           ; shift 1 ;;
-        -q | --qt      ) MODE="GUI-KDIALOG"          ; shift 1 ;;
-        -t | --type    ) VPN_TYPE="${2}"             ; shift 2 ;;
-        -u | --update  ) UPDATE_CACHE=true           ; shift 1 ;;
-             --country ) TargetCountryShort="^${2}$" ; shift 2 ;;
-             --nocache ) USE_CACHE=false             ; shift 1 ;;
-        -l | --limit   ) AUTO_LIMIT="${2}"           ; shift 2 ;;
-        -r | --remove  ) REMOVE_PROFILE=true         ; shift 1 ;;
-        -h | --help    ) _script_usage               ; exit  0 ;;
-        -s | --stop    ) MODE="STOP"                 ; shift 1 ;;
-        --             ) shift 1                     ; break   ;;
-        -n | --name    )
-            SelectedVPNName="${2}"
-            MODE="NAME"
-            shift 2
+    -a | --auto)
+        MODE="AUTO"
+        shift 1
+        ;;
+    -c | --cli)
+        MODE="CLI"
+        shift 1
+        ;;
+    -g | --gtk)
+        MODE="GUI-ZENITY"
+        shift 1
+        ;;
+    -q | --qt)
+        MODE="GUI-KDIALOG"
+        shift 1
+        ;;
+    -t | --type)
+        VPN_TYPE="${2}"
+        shift 2
+        ;;
+    -u | --update)
+        UPDATE_CACHE=true
+        shift 1
+        ;;
+    --country)
+        TargetCountryShort="^${2}$"
+        shift 2
+        ;;
+    --nocache)
+        USE_CACHE=false
+        shift 1
+        ;;
+    -l | --limit)
+        AUTO_LIMIT="${2}"
+        shift 2
+        ;;
+    -r | --remove)
+        REMOVE_PROFILE=true
+        shift 1
+        ;;
+    -h | --help)
+        _script_usage
+        exit 0
+        ;;
+    -s | --stop)
+        MODE="STOP"
+        shift 1
+        ;;
+    --)
+        shift 1
+        break
+        ;;
+    -n | --name)
+        SelectedVPNName="${2}"
+        MODE="NAME"
+        shift 2
+        ;;
+    --gui)
+        case "${2^^}" in
+        "ZENITY")
+            MODE="GUI-ZENITY"
             ;;
-        --gui          )
-            case "${2^^}" in
-                "ZENITY")
-                    MODE="GUI-ZENITY"
-                    ;;
-                "KDIALOG")
-                    MODE="GUI-KDIALOG"
-                    ;;
-            esac
-            shift 2
+        "KDIALOG")
+            MODE="GUI-KDIALOG"
             ;;
-        *)
-            _error "Unknwn argument: '${1}'"
-            _error "Please see the help with '${0} --help'"
-            exit 1
-            ;;
+        esac
+        shift 2
+        ;;
+    *)
+        _error "Unknwn argument: '${1}'"
+        _error "Please see the help with '${0} --help'"
+        exit 1
+        ;;
     esac
 done
 
@@ -798,7 +846,7 @@ if [[ "$MODE" = "GUI" ]]; then
 fi
 
 #-- Run --#
-_prepare(){
+_prepare() {
     _detect_os
     _check_env
     _prepare_env
@@ -808,7 +856,7 @@ _prepare(){
     _parse_server_list
 }
 
-_connect(){
+_connect() {
     _get_server_from_name
     _parse_profile_name
     _setup_vpn
