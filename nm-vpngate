@@ -4,10 +4,13 @@
 # Twitter: @Hayao0819
 # Email  : hayao@fascode.net
 #
-# (c) 2019-2021 Fascode Network.
+# (c) 2019-2024 Fascode Network.
 #
 # A script that makes it easy to connect Network Manager to a VPN Gate
 #
+# This script is licensed under the WTFPL
+#
+
 set -Eeu -o pipefail
 
 # The directory where the script is located
