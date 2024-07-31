@@ -8,14 +8,19 @@ pkgdesc="A script that makes it easy to connect Network Manager to a VPN Gate"
 arch=('any')
 url="https://github.com/Hayao0819/nm-vpngate"
 license=('WTFPL')
-depends=("networkmanager" "networkmanager-openvpn" "networkmanager-strongswan" "zenity" "networkmanager-l2tp")
+depends=("networkmanager" "networkmanager-openvpn" "networkmanager-strongswan" "networkmanager-l2tp")
+optdepends=(
+    "zenity: A simple GUI with GTK for server selection"
+    "kdialog: A simple GUI with QT for server selection"
+)
+
 makedepends=('git')
 source=("git+${url}.git")
 md5sums=('SKIP')
 install="nm-vpngate.install"
 
 pkgver() {
-    cd "${_pkgname}"
+    cd "${_pkgname}" || exit 1
     (
         set -o pipefail
         git describe --long 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' || printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
@@ -23,6 +28,6 @@ pkgver() {
 }
 
 package() {
-    cd "${srcdir}/${_pkgname}"
+    cd "${srcdir}/${_pkgname}" || exit 1
     make DESTDIR="${pkgdir}" install
 }

@@ -150,11 +150,6 @@ _check_env_common() {
         _error "Curl is not installed."
         exit 1
     }
-
-    type "zenity" 1>/dev/null 2>&1 || {
-        _warn "Zenity is not installed."
-        _warn "You cannnot use GUI-ZENITY mode."
-    }
 }
 
 _check_env_nm() {
@@ -208,16 +203,35 @@ _check_env_systemmode() {
         _check_env_openvpn
         ;;
     "mac")
-        #_info "Skipped environment check because of Mac OS"
         _check_env_mac
         ;;
     esac
 }
 
+_check_env_mode() {
+    case "$MODE" in
+    "CLI" | "AUTO" | "NAME")
+        true
+        ;;
+    "GUI-ZENITY")
+        _log "Checking Zenity ..."
+        type "zenity" 1>/dev/null 2>&1 || {
+            _error "Zenity is not installed."
+            exit 1
+        }
+        ;;
+    "GUI-KDIALOG")
+        type "kdialog" 1>/dev/null 2>&1 || {
+            _error "Kdialog is not installed."
+            exit 1
+        }
+        ;;
+    esac
+}
 _check_env() {
     _check_env_common
     _check_env_systemmode
-
+    _check_env_mode
 }
 
 #-- Prepare environment --#
@@ -506,6 +520,7 @@ _select_server() {
 
     # すべての_select_server_* 関数はSelectedVPNNameを定義してください。
 
+    # AUTO_SETUPは以前のバージョンで利用されていた変数
     if [[ "${AUTO_SETUP=false}" = true ]]; then
         _select_server_auto
     else
