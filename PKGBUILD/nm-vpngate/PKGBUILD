@@ -1,0 +1,25 @@
+# Maintaoner: Yamada Hayao <development@fascode.net>
+
+_pkgname="nm-vpngate"
+pkgname="${_pkgname}"
+pkgver=v1.1
+pkgrel=1
+pkgdesc="A script that makes it easy to connect Network Manager to a VPN Gate"
+arch=('any')
+url="https://github.com/Hayao0819/nm-vpngate"
+license=('WTFPL')
+depends=("networkmanager" "networkmanager-openvpn" "networkmanager-strongswan" "networkmanager-l2tp")
+optdepends=(
+    "zenity: A simple GUI with GTK for server selection"
+    "kdialog: A simple GUI with QT for server selection"
+)
+
+makedepends=('git')
+source=("git+${url}.git#tag=${pkgver}")
+md5sums=('SKIP')
+install="nm-vpngate.install"
+
+package() {
+    cd "${srcdir}/${_pkgname}" || exit 1
+    make DESTDIR="${pkgdir}" install
+}
