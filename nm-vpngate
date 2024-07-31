@@ -11,6 +11,21 @@
 # This script is licensed under the WTFPL
 #
 
+#-- Codes may run in POSIX Shell--#
+set -e
+
+#shellcheck disable=SC2268,SC2128
+if [ "x$BASH_VERSION" = "x" ]; then
+    echo "This script requires Bash 4 or later." >&2
+    exit 1
+fi
+
+if [ "$(echo "$BASH_VERSION" | cut -d "." -f 1)" -lt 4 ]; then
+    echo "This script requires Bash 4 or later." >&2
+    exit 1
+fi
+
+#-- From now on, the following will be executed in Bash 4 or later --#
 set -Eeu -o pipefail
 
 # The directory where the script is located
