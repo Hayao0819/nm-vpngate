@@ -580,6 +580,11 @@ _select_server() {
 
 #-- Get server info from serner name --#
 _get_server_from_name() {
+    if [[ -n "${SelectedVPNName-""}" ]]; then
+        _error "Failed to get server name"
+        exit 1
+    fi
+
     # 指定されたサーバ名が存在しなかったら終了する
     ! printf "%s\n" "${HostNameList[@]}" | grep -qx "${SelectedVPNName}" && {
         _error "${SelectedVPNName} was not found in server list."
@@ -588,19 +593,14 @@ _get_server_from_name() {
 
     # サーバ情報を取得する
     _log "Getting server information ..."
-    if [[ -n "${SelectedVPNName-""}" ]]; then
-        _log "Selected server name is ${SelectedVPNName}"
+    _log "Selected server name is ${SelectedVPNName}"
 
-        # 設定された名前のサーバが配列の何番目かを取得
-        SelectedIndex="$(awk "BEGIN {FS=\",\"} {
+    # 設定された名前のサーバが配列の何番目かを取得
+    SelectedIndex="$(awk "BEGIN {FS=\",\"} {
             if (\$1 == \"${SelectedVPNName}\" ){
                 print NR - 1
             }
         }" < <(printf "%s\n" "${CSV_SERVERLIST[@]}"))"
-    else
-        _error "Failed to get server name"
-        exit 1
-    fi
 
     # 取得結果をログ
     #_log "Index number is ${SelectedIndex}"
