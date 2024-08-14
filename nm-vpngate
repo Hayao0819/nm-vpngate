@@ -66,6 +66,10 @@ AUTO_TRY_COUNT=1
 # Backup of server list for AUTO MODE
 AUTO_CSV_SERVERLIST=()
 
+# The list of patch for the ovpn file
+# Currently, cipher is the only supported item
+FIX_OPENVPN_CONFIG=("cipher")
+
 # About AUTO_SETUP
 # AUTO_SETUPは以前のバージョンで利用されていました
 # 現在では廃止されていますが、古い設定ファイルでも動かせるように一部で参照しています
@@ -160,6 +164,7 @@ _dater() {
 _run() {
     _log "Run: ${*}"
     "$@"
+    return $?
 }
 
 #-- Check environment and functions --#
@@ -736,11 +741,37 @@ _connect_vpn_openvpn() {
         _error "$PROFILE_NAME was not found."
         return 1
     }
+
+    local _sudo="sudo"
     if [[ "${MODE}" = "GUI-"* ]]; then
-        _run pkexec openvpn --config "$_ovpn_file"
-    else
-        _run sudo openvpn --config "$_ovpn_file"
+        _sudo=""
+        if type "pkexec" 1>/dev/null 2>&1; then
+            _sudo="pkexec"
+        elif type "gksudo" 1>/dev/null 2>&1; then
+            _sudo="gksudo"
+        elif type "kdesudo" 1>/dev/null 2>&1; then
+            _sudo="kdesudo"
+        fi
+        if [[ -z "${_sudo-""}" ]]; then
+            _warn "No GUI sudo command found. Fall back to CLI sudo."
+            return 1
+        fi
     fi
+
+    # fix ovpn file
+    if printf "%s\n" "${FIX_OPENVPN_CONFIG[@]}" | grep -qx "cipher"; then
+        if sed --help 2>/dev/null | grep -q "GNU"; then
+            sed -i "s|^cipher |data-ciphers-fallback|g" "$_ovpn_file"
+        else
+            sed -i "" "s|^cipher |data-ciphers-fallback |g" "$_ovpn_file"
+        fi
+    fi
+
+    _run "$_sudo" openvpn --config "$_ovpn_file" || {
+        _error "OpenVPN has returned non-zero exit code."
+        return 1
+    }
+
 }
 
 _connect_vpn() {
@@ -855,6 +886,10 @@ while [[ -n "${1-""}" ]]; do
             ;;
         esac
         shift 2
+        ;;
+    --fix-ovpn-cipher)
+        FIX_OPENVPN_CONFIG+=("cipher")
+        shift 1
         ;;
     *)
         _error "Unknwn argument: '${1}'"
