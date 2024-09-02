@@ -654,6 +654,9 @@ _setup_vpn_nm() {
 
 # OpenVPNの設定ファイルをディレクトリに保存します
 _setup_vpn_common_openvpn() {
+    _warn "This feature is under development. Please use it with caution."
+    _warn "Please tell me if you have any problems or advice. I have a bit knowledge about OpenVPN."
+
     local _ovpn_file="${CONFIG_DIR}/${PROFILE_NAME}.ovpn"
 
     #-- Save ovpn file --#
