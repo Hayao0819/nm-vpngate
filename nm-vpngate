@@ -580,7 +580,7 @@ _select_server() {
 
 #-- Get server info from serner name --#
 _get_server_from_name() {
-    if [[ -n "${SelectedVPNName-""}" ]]; then
+    if [[ -z     "${SelectedVPNName-""}" ]]; then
         _error "Failed to get server name"
         exit 1
     fi
