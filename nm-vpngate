@@ -167,6 +167,11 @@ _run() {
     return $?
 }
 
+# array_includes <array> <value>
+array_includes() {
+    eval "printf '%s\n' \"\${$1[@]}\"" | grep -qx "${2}"
+}
+
 #-- Check environment and functions --#
 _check_env_common() {
     type "curl" 1>/dev/null 2>&1 || {
@@ -430,27 +435,39 @@ _select_server_cli() {
 }
 
 _select_server_zenity() {
-    local _args=() _server
+    local _args=() _server _clm _index
+    local _ignore_columns=("OpenVPN_ConfigData_Base64")
+    local _ignore_columns_sedargs=()
+
+    for _clm in "${_ignore_columns[@]}"; do
+        # _ignore_columns_index+=("$(_get_csv_clm "${_clm}")")
+        _ignore_columns_sedargs+=("-e" "$(_get_csv_clm "${_clm}")d")
+    done
+    unset _clm
 
     # CSV_VARSのぶんだけリストのカラムを作成
     _log "Configuring graphical user interface ..."
     while read -r _var; do
+        if array_includes _ignore_columns "${_var}"; then
+            _log "Ignore column: ${_var}"
+            continue
+        fi
         _args+=(--column="${_var}")
     done < <(tr "," "\n" <<<"${CSV_VARS}")
+    unset _var
 
     # サーバ情報をZenityに渡す
     for _server in "${CSV_SERVERLIST[@]}"; do
-        readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<<"${_server}")
+        readarray -t -O "${#_args[@]}" _args < <(tr "," "\n" <<<"${_server}" | sed "${_ignore_columns_sedargs[@]}")
     done
-
-    # OpenVPN_ConfigData_Base64を非表示にする
-    _args+=("--hide-column" "$(_get_csv_clm "OpenVPN_ConfigData_Base64")")
+    unset _server
 
     # Zenityを実行する
     if ! SelectedVPNName="$(zenity --list --title="${APP_NAME}" --text="Please select server that you want to connect" "${_args[@]}")"; then
         _log "zenity has terminated abnormally."
         exit 1
     fi
+    # echo "SelectedVPNName: ${SelectedVPNName}"
 }
 
 # Todo: GUIのテキスト表示を見やすくする
