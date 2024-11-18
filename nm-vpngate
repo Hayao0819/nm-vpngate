@@ -160,6 +160,14 @@ _dater() {
     fi
 }
 
+_check_command() {
+    if ! type "${1}" 1>/dev/null 2>&1; then
+        _error "${1} is not installed."
+        return 1
+    fi
+    return 0
+}
+
 # _run command
 _run() {
     _log "Run: ${*}"
@@ -174,25 +182,22 @@ array_includes() {
 
 #-- Check environment and functions --#
 _check_env_common() {
-    type "curl" 1>/dev/null 2>&1 || {
-        _error "Curl is not installed."
+    # Check the number of loaded configuration files
+    if (("${#LOADED_CONFIG[@]}" < 1)); then
+        _error "No configuration file was found."
         exit 1
-    }
+    fi
+
+    # Check external commands
+    _check_command "curl"
 }
 
 _check_env_nm() {
     local _exit=0
 
-    # Check the number of loaded configuration files
-    if (("${#LOADED_CONFIG[@]}" < 1)); then
-        _error "No configuration file was found."
-        _exit="$((_exit + 1))"
-    fi
-
     # Check external commands
     for _cmd in "nmcli" "systemctl"; do
-        ! type "${_cmd}" 1>/dev/null 2>&1 &&
-            _error "${_cmd} is not installed." && _exit="$((_exit + 1))"
+        _check_command "${_cmd}" || _exit="$((_exit + 1))"
     done
 
     # Check NetworkManager VPN Plugin
@@ -212,8 +217,7 @@ _check_env_nm() {
 }
 
 _check_env_openvpn() {
-    # Currently, there is nothing to do
-    true
+    _check_command "openvpn"
 }
 
 _check_env_mac() {
@@ -242,20 +246,16 @@ _check_env_mode() {
         true
         ;;
     "GUI-ZENITY")
-        _log "Checking Zenity ..."
-        type "zenity" 1>/dev/null 2>&1 || {
-            _error "Zenity is not installed."
-            exit 1
-        }
+        _log "Checking zenity ..."
+        _check_command "zenity"
         ;;
     "GUI-KDIALOG")
-        type "kdialog" 1>/dev/null 2>&1 || {
-            _error "Kdialog is not installed."
-            exit 1
-        }
+        _log "Checking kdialog ..."
+        _check_command "kdialog"
         ;;
     esac
 }
+
 _check_env() {
     _check_env_common
     _check_env_systemmode
@@ -597,7 +597,7 @@ _select_server() {
 
 #-- Get server info from serner name --#
 _get_server_from_name() {
-    if [[ -z     "${SelectedVPNName-""}" ]]; then
+    if [[ -z "${SelectedVPNName-""}" ]]; then
         _error "Failed to get server name"
         exit 1
     fi
