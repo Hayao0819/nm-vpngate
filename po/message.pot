@@ -1,0 +1,50 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2024 Fascode Network
+# This file is distributed under the same license as the nm-vpngate package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: nm-vpngate\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-11-19 01:45+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#, sh-format
+msgid "${_command} is not installed."
+msgstr ""
+
+#, sh-format
+msgid "No configuration file was found."
+msgstr ""
+
+#, sh-format
+msgid "NetworkManager Plugin for ${_vpn} is not installed."
+msgstr ""
+
+#, sh-format
+msgid "NetworkManager is not running."
+msgstr ""
+
+#, sh-format
+msgid "Sorry, Mac OS does not support yet."
+msgstr ""
+
+#, sh-format
+msgid "Checking zenity ..."
+msgstr ""
+
+#, sh-format
+msgid "Checking kdialog ..."
+msgstr ""
+
+#, sh-format
+msgid "Getting and parsing the server list is in progress"
+msgstr ""

@@ -15,3 +15,13 @@ creatdir:
 uninstall:
 	rm -f "${BINDIR}/nm-vpngate" "${ETCDIR}/nm-vpngate.conf"
 
+pot:
+	@xgettext \
+		-o po/message.pot \
+		-L Shell \
+		--from-code=UTF-8 \
+		--no-location \
+		--copyright-holder="Fascode Network" \
+		--package-name="nm-vpngate" \
+		nm-vpngate
+

@@ -84,6 +84,16 @@ FIX_OPENVPN_CONFIG=("cipher")
 # The index numbers of all arrays are matched each other.
 # For example, ${IPList[3]} and ${PingLisrt[3]} point to the same server.
 
+#-- Load gettext.sh --#
+{ # shellcheck source=/dev/null
+    source "gettext.sh" 2>/dev/null
+} || {
+    echo "Failed to load gettext.sh. Falling back to English." >&2
+    eval_gettext() {
+        eval 'echo "$1"'
+    }
+}
+
 #-- Message functions --#
 _log() { echo "[ LOG ]: ${1}" >&2; }
 _msg() {
@@ -161,8 +171,10 @@ _dater() {
 }
 
 _check_command() {
-    if ! type "${1}" 1>/dev/null 2>&1; then
-        _error "${1} is not installed."
+    local _command="${1}"
+    if ! type "${_command}" 1>/dev/null 2>&1; then
+        #_error "${1} is not installed."
+        _error "$(eval_gettext '${_command} is not installed.')"
         return 1
     fi
     return 0
@@ -184,7 +196,7 @@ array_includes() {
 _check_env_common() {
     # Check the number of loaded configuration files
     if (("${#LOADED_CONFIG[@]}" < 1)); then
-        _error "No configuration file was found."
+        _error "$(eval_gettext 'No configuration file was found.')"
         exit 1
     fi
 
@@ -203,12 +215,12 @@ _check_env_nm() {
     # Check NetworkManager VPN Plugin
     for _vpn in "openvpn" "strongswan" "l2tp"; do
         ! [[ -f "/usr/lib/NetworkManager/VPN/nm-${_vpn}-service.name" ]] &&
-            _error "NetworkManager Plugin for ${_vpn} is not installed." && _exit="$((_exit + 1))"
+            _error "$(eval_gettext 'NetworkManager Plugin for ${_vpn} is not installed.')" && _exit="$((_exit + 1))"
     done
 
     # Check Metwork Manager
     ! systemctl is-active NetworkManager 1>/dev/null 2>&1 &&
-        _error "NetworkManager is not running." && _exit="$((_exit + 1))"
+        _error "$(eval_gettext 'NetworkManager is not running.')" && _exit="$((_exit + 1))"
 
     # Exit if errors has been found
     ((_exit != 0)) && exit 1
@@ -222,7 +234,7 @@ _check_env_openvpn() {
 
 _check_env_mac() {
     # mac does not support yet
-    _error "Sorry, Mac OS does not support yet."
+    _error "$(eval_gettext 'Sorry, Mac OS does not support yet.')"
     exit 1
 }
 
@@ -246,11 +258,11 @@ _check_env_mode() {
         true
         ;;
     "GUI-ZENITY")
-        _log "Checking zenity ..."
+        _log "$(eval_gettext 'Checking zenity ...')"
         _check_command "zenity"
         ;;
     "GUI-KDIALOG")
-        _log "Checking kdialog ..."
+        _log "$(eval_gettext 'Checking kdialog ...')"
         _check_command "kdialog"
         ;;
     esac
@@ -317,7 +329,8 @@ _check_server_cache() {
 
 #-- Get server list from API or cache--#
 _get_server_list() {
-    _info "Getting and parsing the server list is in progress"
+    # _info "Getting and parsing the server list is in progress"
+    _info "$(eval_gettext "Getting and parsing the server list is in progress")"
     if [[ "${UPDATE_CACHE}" = true ]]; then
         _log "Remove and update cached server list"
         rm -rf "${CACHE_PATH}"
