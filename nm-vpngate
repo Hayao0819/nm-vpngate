@@ -278,15 +278,22 @@ _detect_os() {
         return 0
     fi
 
-    if systemctl is-active NetworkManager 1>/dev/null 2>&1; then
+    if type cmd.exe 1>/dev/null 2>&1; then
+        _error "Windows(WSL) is not supported." 1
+    elif systemctl is-active NetworkManager 1>/dev/null 2>&1; then
         _info "Network Manager has been actived."
         SYSTEM_MODE="network-manager"
     elif type openvpn 1>/dev/null 2>&1; then
         _info "Found openvpn command. Use it to connect VPN."
         SYSTEM_MODE="openvpn"
     elif type scutil 1>/dev/null 2>&1; then
-        _info "Found scutil command. Your OS may be Mac OS."
+        _info "Found scutil command. Your OS may be macOS."
         SYSTEM_MODE="mac"
+    elif [[ -d "/run/systemd/system" ]]; then
+        _error "Systemd is running but NetworkManager is not running."
+        _error "Please start NetworkManager and try again." 1
+    else
+        _error "No supported VPN connection method was found." 1
     fi
 }
 
@@ -704,6 +711,9 @@ _setup_vpn() {
         ;;
     "mac")
         _setup_vpn_mac
+        ;;
+    "")
+        _error "SYSTEM_MODE is not set. It is a bug of nm-vpngate." 1
         ;;
     esac
 }
