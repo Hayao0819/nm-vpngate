@@ -122,6 +122,8 @@ _script_usage() {
     echo "    -s |  --stop                Disconnects and exits the currently valid VPN connection"
     echo "         --nocache             Do not use cached server list"
     echo "         --country [country]   Set the country filter"
+    echo "         --dns [servers]       DNS servers used while the VPN is active"
+    echo "                               (space separated, empty string to disable override)"
 }
 
 # Returns the column number of CSV_VARS.
@@ -657,9 +659,17 @@ _setup_vpn_nm_openvpn() {
 }
 
 _setup_vpn_nm_l2tp() {
+    local _dns_args=()
+    if [[ -n "${VPN_DNS-""}" ]]; then
+        _dns_args=(ipv4.ignore-auto-dns yes ipv4.dns "${VPN_DNS}")
+    fi
+
     nmcli connection add \
-        connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type VPN vpn-type l2tp ifname -- \
-        connection.autoconnect no ipv4.method auto vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, require-mppe = yes, user = ${USERNAME}" vpn.secrets password="${PASSWORD}"
+        connection.id "${PROFILE_NAME}" con-name "${PROFILE_NAME}" type vpn vpn-type l2tp ifname -- \
+        connection.autoconnect no ipv4.method auto \
+        ${_dns_args[@]+"${_dns_args[@]}"} \
+        vpn.data "gateway = ${IPList[${SelectedIndex}]}, ipsec-enabled = yes, ipsec-psk = ${IPSEC_PSK}, mru = 1400, mtu = 1400, password-flags = 0, refuse-chap = yes, refuse-mschap = yes, refuse-pap = yes, user = ${USERNAME}" \
+        vpn.secrets "password=${PASSWORD}"
 }
 
 _setup_vpn_nm() {
@@ -878,6 +888,10 @@ while [[ -n "${1-""}" ]]; do
         ;;
     --country)
         TargetCountryShort="^${2}$"
+        shift 2
+        ;;
+    --dns)
+        VPN_DNS="${2}"
         shift 2
         ;;
     --nocache)
