@@ -61,6 +61,65 @@ cd nm-vpngate/
 sudo make install
 ```
 
+### NixOS (flake)
+
+This repository is a Nix flake. It exposes a package, an overlay, and a NixOS module.
+
+Add it to your flake inputs:
+
+```nix
+{
+  inputs.nm-vpngate.url = "github:Hayao0819/nm-vpngate";
+}
+```
+
+Then enable the module in your NixOS configuration:
+
+```nix
+{ inputs, ... }:
+{
+  imports = [ inputs.nm-vpngate.nixosModules.default ];
+
+  networking.networkmanager.enable = true;
+
+  services.nm-vpngate = {
+    enable = true;
+    autoConnect = true;       # start a systemd service that connects on boot
+    vpnType = "L2TP";         # "OPENVPN" or "L2TP"
+    country = "JP";           # regex against CountryShort, e.g. "JP|US"
+    dns = [ "1.1.1.1" "8.8.8.8" ];
+
+    # Free-form keys written to /etc/nm-vpngate.conf (override the high-level
+    # options above when the same key is set in both).
+    settings = {
+      MODE = "AUTO";
+      AUTO_TARGET = "Score";
+      AUTO_COND = "MAX";
+      KEEP_CACHE = 43200;
+    };
+
+    # extraConfig = ''
+    #   FIX_OPENVPN_CONFIG=("cipher")
+    # '';
+  };
+}
+```
+
+The matching NetworkManager VPN plugin (`networkmanager-openvpn` or `networkmanager-l2tp`) is added to `networking.networkmanager.plugins` automatically based on `vpnType`.
+
+Run the CLI without enabling the module:
+
+```bash
+nix run github:Hayao0819/nm-vpngate -- -a -t l2tp
+```
+
+Or pull just the package via the overlay:
+
+```nix
+nixpkgs.overlays = [ inputs.nm-vpngate.overlays.default ];
+environment.systemPackages = [ pkgs.nm-vpngate ];
+```
+
 ### Usage
 See `nm-vpngate -h` for normal command usage.
 
