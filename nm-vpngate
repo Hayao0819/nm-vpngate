@@ -269,6 +269,9 @@ _prepare_env() {
 
     # Set MODE variable to Uppercase
     MODE="${MODE^^}"
+
+    # Set VPN_TYPE variable to Uppercase
+    VPN_TYPE="${VPN_TYPE^^}"
 }
 
 #-- Detect OS --#
