@@ -1,17 +1,17 @@
-PWD      := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
-DESTDIR  := /
-ETCDIR   := ${DESTDIR}/etc/
-USRDIR   := ${DESTDIR}/usr
-BINDIR   := ${USRDIR}/bin/
+DESTDIR     ?=
+PREFIX      ?= /usr
+BINDIR      ?= $(PREFIX)/bin
+SYSCONFDIR  ?= /etc
+SYSTEMDDIR  ?= $(PREFIX)/lib/systemd/system
 
-install: creatdir
-	install -D -m 755 "${PWD}/nm-vpngate"          "${BINDIR}/nm-vpngate"
-	install -D -m 644 "${PWD}/nm-vpngate.conf"     "${ETCDIR}/nm-vpngate.conf"
-	install -D -m 644 "${PWD}/nm-vpngate.service"  "${USRDIR}/lib/systemd/system/nm-vpngate.service"
+.PHONY: install uninstall
 
-creatdir:
-	@mkdir -p "${ETCDIR}" "${BINDIR}"
+install:
+	install -Dm755 nm-vpngate         $(DESTDIR)$(BINDIR)/nm-vpngate
+	install -Dm644 nm-vpngate.conf    $(DESTDIR)$(SYSCONFDIR)/nm-vpngate.conf
+	install -Dm644 nm-vpngate.service $(DESTDIR)$(SYSTEMDDIR)/nm-vpngate.service
 
 uninstall:
-	rm -f "${BINDIR}/nm-vpngate" "${ETCDIR}/nm-vpngate.conf"
-
+	rm -f $(DESTDIR)$(BINDIR)/nm-vpngate
+	rm -f $(DESTDIR)$(SYSCONFDIR)/nm-vpngate.conf
+	rm -f $(DESTDIR)$(SYSTEMDDIR)/nm-vpngate.service
