@@ -203,19 +203,23 @@ in
 
     systemd.services.nm-vpngate = lib.mkIf cfg.autoConnect {
       description = "Automatically connect to a VPN Gate server (nm-vpngate)";
+      documentation = [ "https://github.com/Hayao0819/nm-vpngate" ];
       after = [
         "network-online.target"
         "NetworkManager.service"
       ];
-      wants = [ "network-online.target" ];
-      requires = [ "NetworkManager.service" ];
+      wants = [
+        "network-online.target"
+        "NetworkManager.service"
+      ];
       wantedBy = [ "multi-user.target" ];
 
       serviceConfig = {
         Type = "oneshot";
+        RemainAfterExit = true;
         ExecStart = "${lib.getExe cfg.package} -a -l ${toString cfg.retryLimit}";
         ExecStop = "${lib.getExe cfg.package} --stop";
-        RemainAfterExit = true;
+        TimeoutStartSec = "10min";
         Restart = "on-failure";
         RestartSec = 30;
       };

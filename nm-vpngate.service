@@ -1,16 +1,18 @@
 [Unit]
-Description=Automatically connects to a VPN Gate that matches the conditions
-After=network-online.target
-Requires=NetworkManager.service
+Description=Automatically connect to a VPN Gate server (nm-vpngate)
 Documentation=https://github.com/Hayao0819/nm-vpngate
+Wants=network-online.target NetworkManager.service
+After=network-online.target NetworkManager.service
+ConditionFileIsExecutable=/usr/bin/nm-vpngate
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/bin/nm-vpngate -a -l 5
 ExecStop=/usr/bin/nm-vpngate --stop
-ExecStopPost=/usr/bin/nm-vpngate --stop
+TimeoutStartSec=10min
 Restart=on-failure
-RemainAfterExit=yes
+RestartSec=30
 
 [Install]
-WantedBy=network-online.target
+WantedBy=multi-user.target
